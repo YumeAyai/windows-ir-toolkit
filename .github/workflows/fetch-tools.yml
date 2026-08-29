@@ -183,7 +183,8 @@ jobs:
           echo "Creating release: $NEW_TAG"
 
           # 删除已有的 tools-* release(只保留最新一个)
-          OLD_TAG=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName -q '.[] | select(.tagName | startswith("tools-"))' 2>/dev/null | head -1 || echo "")
+          # 注意: --jq 要直接返回 string,否则 head -1 拿到的是 JSON 对象不是 tag 名
+          OLD_TAG=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName --jq '[.[] | select(.tagName | startswith("tools-"))][0].tagName // ""' 2>/dev/null || echo "")
           if [ -n "$OLD_TAG" ] && [ "$OLD_TAG" != "$NEW_TAG" ]; then
             echo "Deleting old release: $OLD_TAG"
             gh release delete "$OLD_TAG" --repo "$GITHUB_REPOSITORY" --yes || true
