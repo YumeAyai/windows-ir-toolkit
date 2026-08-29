@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "_comment": "工具源信息,workflow 会基于此自动下载。手动下载工具请用 install_tools.ps1/sh",
+  "version": "1.0.0",
+  "last_updated": "2026-08-30",
+  "tools": {
+    "winpmem": {
+      "purpose": "内存 dump 主力 (Velocidex 出品,开源)",
+      "type": "auto",
+      "source": "github:Velocidex/WinPmem",
+      "asset_name": "winpmem_mini_x64_rc2.exe",
+      "target_path": "01_获取/",
+      "size_mb_approx": 5
+    },
+    "capa": {
+      "purpose": "PE 静态分析 (Mandiant 出品,识别可执行文件的能力)",
+      "type": "auto",
+      "source": "github:mandiant/capa",
+      "asset_pattern": "*windows*.zip",
+      "target_path": "03_分析/",
+      "size_mb_approx": 25
+    },
+    "ftk_imager": {
+      "purpose": "磁盘/内存取证镜像 (Exterro 出品,GUI)",
+      "type": "manual",
+      "reason": "官方下载需注册账号,无法自动获取",
+      "download_url": "https://www.exterro.com/ftk-imager",
+      "target_path": "01_获取/FTK_Imager.exe",
+      "size_mb_approx": 50
+    },
+    "magnet_ram_capture": {
+      "purpose": "备用内存 dump 工具 (Magnet Forensics)",
+      "type": "manual",
+      "reason": "官方下载需注册账号",
+      "download_url": "https://www.magnetforensics.com/resources/magnet-ram-capture/",
+      "target_path": "01_获取/MagnetRAMCapture.exe",
+      "size_mb_approx": 10
+    },
+    "dumpit": {
+      "purpose": "UEFI 兼容内存 dump (Comae 出品)",
+      "type": "manual",
+      "reason": "官方下载需注册账号",
+      "download_url": "https://www.comae.com/",
+      "target_path": "01_获取/DumpIt.exe",
+      "size_mb_approx": 2
+    }
+  },
+  "fetch_schedule": {
+    "cron": "0 2 * * 0",
+    "description": "每周日 02:00 UTC (北京时间 10:00) 自动检查更新"
+  },
+  "how_to_use_after_clone": {
+    "automatic": "GitHub Actions 会自动在 Release 页面发布最新工具 exe",
+    "manual_install": [
+      "Windows:  .\\install_tools.ps1",
+      "macOS/Linux:  ./install_tools.sh"
+    ],
+    "download_only": "访问 https://github.com/YumeAyai/windows-ir-toolkit/releases 找最新的 tools-* release"
+  }
+}

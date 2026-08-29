@@ -1,0 +1,230 @@
+name: Fetch Forensics Tools
+
+on:
+  # 每周日 02:00 UTC 自动检查更新 (北京时间 10:00)
+  schedule:
+    - cron: '0 2 * * 0'
+  # 支持手动触发
+  workflow_dispatch:
+    inputs:
+      force:
+        description: '强制更新(即使没新版本也重新打包)'
+        required: false
+        default: 'false'
+        type: boolean
+  # 当 fetch-tools 相关文件变更时也触发
+  push:
+    paths:
+      - '.github/workflows/fetch-tools.yml'
+      - 'tools-manifest.json'
+
+permissions:
+  contents: write   # 用来创建 release
+  actions: read
+
+jobs:
+  fetch:
+    name: Download tools & publish release
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python (用于解析 JSON)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Load manifest
+        id: manifest
+        run: |
+          python3 -c "import json; m = json.load(open('tools-manifest.json')); print(json.dumps(m, indent=2))"
+          echo "manifest<<EOF" >> $GITHUB_OUTPUT
+          cat tools-manifest.json >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Resolve latest WinPmem
+        id: winpmem
+        run: |
+          echo "Querying Velocidex/WinPmem latest release..."
+          WINPMEM_JSON=$(curl -fsSL "https://api.github.com/repos/Velocidex/WinPmem/releases/latest")
+          WINPMEM_TAG=$(echo "$WINPMEM_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['tag_name'])")
+          WINPMEM_URL=$(echo "$WINPMEM_JSON" | python3 -c "
+          import sys, json
+          assets = json.load(sys.stdin).get('assets', [])
+          for a in assets:
+              if a['name'] == 'winpmem_mini_x64_rc2.exe':
+                  print(a['browser_download_url'])
+                  break
+          ")
+          if [ -z "$WINPMEM_URL" ]; then
+            echo "::error::Cannot find winpmem_mini_x64_rc2.exe in latest release"
+            exit 1
+          fi
+          echo "tag=$WINPMEM_TAG" >> $GITHUB_OUTPUT
+          echo "url=$WINPMEM_URL" >> $GITHUB_OUTPUT
+          echo "✓ WinPmem $WINPMEM_TAG"
+
+      - name: Resolve latest capa
+        id: capa
+        run: |
+          echo "Querying mandiant/capa latest release..."
+          CAPA_JSON=$(curl -fsSL "https://api.github.com/repos/mandiant/capa/releases/latest")
+          CAPA_TAG=$(echo "$CAPA_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['tag_name'])")
+          CAPA_URL=$(echo "$CAPA_JSON" | python3 -c "
+          import sys, json
+          assets = json.load(sys.stdin).get('assets', [])
+          for a in assets:
+              if a['name'] == 'capa-${CAPA_TAG}-windows.zip' or ('windows' in a['name'] and a['name'].endswith('.zip')):
+                  print(a['browser_download_url'])
+                  break
+          ")
+          if [ -z "$CAPA_URL" ]; then
+            # Fallback: pick first windows zip
+            CAPA_URL=$(echo "$CAPA_JSON" | python3 -c "
+            import sys, json
+            assets = json.load(sys.stdin).get('assets', [])
+            for a in assets:
+                if 'windows' in a['name'].lower() and a['name'].endswith('.zip'):
+                    print(a['browser_download_url'])
+                    break
+            ")
+          fi
+          echo "tag=$CAPA_TAG" >> $GITHUB_OUTPUT
+          echo "url=$CAPA_URL" >> $GITHUB_OUTPUT
+          echo "✓ capa $CAPA_TAG"
+
+      - name: Check existing release
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 看现有的 tools-* release
+          EXISTING_TAG=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName -q '.[] | select(.tagName | startswith("tools-"))' 2>/dev/null | head -1 || echo "")
+          echo "existing_tag=$EXISTING_TAG" >> $GITHUB_OUTPUT
+
+          # 对比 winpmem tag 是否变化
+          if [ -n "$EXISTING_TAG" ] && [ "$EXISTING_TAG" = "tools-${{ steps.winpmem.outputs.tag }}-${{ steps.capa.outputs.tag }}" ] && [ "${{ inputs.force }}" != "true" ]; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "✓ No changes, existing release matches: $EXISTING_TAG"
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "→ Changes detected, will publish new release"
+          fi
+
+      - name: Download WinPmem
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          mkdir -p 01_获取
+          echo "Downloading ${{ steps.winpmem.outputs.url }}..."
+          curl -fsSL --retry 3 --retry-delay 5 -o 01_获取/winpmem_mini_x64_rc2.exe "${{ steps.winpmem.outputs.url }}"
+          ls -la 01_获取/
+          file 01_获取/winpmem_mini_x64_rc2.exe 2>/dev/null || true
+
+      - name: Download capa
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          mkdir -p 03_分析
+          echo "Downloading ${{ steps.capa.outputs.url }}..."
+          curl -fsSL --retry 3 --retry-delay 5 -o /tmp/capa.zip "${{ steps.capa.outputs.url }}"
+          # 展开 zip,但只保留 windows-x64 的可执行文件
+          cd 03_分析
+          unzip -o /tmp/capa.zip
+          rm -f /tmp/capa.zip
+          # 找到主程序,简化命名
+          find . -name "capa.exe" -type f | head -1
+          ls -la
+
+      - name: Generate checksums
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          {
+            echo "# Forensics Tools SHA256"
+            echo "# Generated: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+            echo "# WinPmem: ${{ steps.winpmem.outputs.tag }}"
+            echo "# capa:    ${{ steps.capa.outputs.tag }}"
+            echo ""
+            find 01_获取 03_分析 -type f \( -name "*.exe" -o -name "capa*" \) -exec sha256sum {} \;
+          } > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Build release notes
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          {
+            echo "## 取证工具自动打包"
+            echo ""
+            echo "**WinPmem**: [${{ steps.winpmem.outputs.tag }}](https://github.com/Velocidex/WinPmem/releases/tag/${{ steps.winpmem.outputs.tag }})"
+            echo "**capa**: [${{ steps.capa.outputs.tag }}](https://github.com/mandiant/capa/releases/tag/${{ steps.capa.outputs.tag }})"
+            echo ""
+            echo "### 包含文件"
+            echo "- \`winpmem_mini_x64_rc2.exe\` - 内存 dump 主力 (~5MB)"
+            echo "- \`capa.exe\` (含依赖) - PE 静态分析"
+            echo ""
+            echo "### SHA256 校验"
+            echo '```'
+            cat SHA256SUMS
+            echo '```'
+            echo ""
+            echo "### 自动触发"
+            echo "此 release 由 GitHub Actions 自动生成,每周检查更新。"
+            echo "手动触发: Actions → Fetch Forensics Tools → Run workflow"
+          } > /tmp/release_notes.md
+          cat /tmp/release_notes.md
+
+      - name: Create tools release
+        if: steps.check.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NEW_TAG="tools-${{ steps.winpmem.outputs.tag }}-${{ steps.capa.outputs.tag }}"
+          echo "Creating release: $NEW_TAG"
+
+          # 删除已有的 tools-* release(只保留最新一个)
+          OLD_TAG=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName -q '.[] | select(.tagName | startswith("tools-"))' 2>/dev/null | head -1 || echo "")
+          if [ -n "$OLD_TAG" ] && [ "$OLD_TAG" != "$NEW_TAG" ]; then
+            echo "Deleting old release: $OLD_TAG"
+            gh release delete "$OLD_TAG" --repo "$GITHUB_REPOSITORY" --yes || true
+          fi
+
+          # 先创建 release(用 file 输入 notes 避免 YAML 解析问题)
+          gh release create "$NEW_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Forensics Tools - ${{ steps.winpmem.outputs.tag }} / ${{ steps.capa.outputs.tag }}" \
+            --notes-file /tmp/release_notes.md
+
+          # 单独上传 assets(更可控)
+          gh release upload "$NEW_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber \
+            01_获取/winpmem_mini_x64_rc2.exe \
+            SHA256SUMS 2>/dev/null || true
+
+          # 上传 capa(可能是目录或多文件)
+          if [ -d "03_分析" ]; then
+            find 03_分析 -type f -name "capa.exe" -exec gh release upload "$NEW_TAG" {} --repo "$GITHUB_REPOSITORY" --clobber \; 2>/dev/null || true
+            # 也打包整个目录作为 zip,方便下载
+            if command -v zip >/dev/null 2>&1; then
+              (cd 03_分析 && zip -r /tmp/capa-bundle.zip .) 2>/dev/null || true
+              [ -f /tmp/capa-bundle.zip ] && gh release upload "$NEW_TAG" /tmp/capa-bundle.zip --repo "$GITHUB_REPOSITORY" --clobber 2>/dev/null || true
+            fi
+          fi
+
+          echo "Release created: $NEW_TAG"
+          echo "URL: https://github.com/$GITHUB_REPOSITORY/releases/tag/$NEW_TAG"
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## 🔧 Forensics Tools Update" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| 工具 | 版本 | 状态 |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|------|------|" >> $GITHUB_STEP_SUMMARY
+          echo "| WinPmem | ${{ steps.winpmem.outputs.tag }} | ${{ steps.check.outputs.changed == 'true' && '📥 updated' || '✓ no change' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| capa | ${{ steps.capa.outputs.tag }} | ${{ steps.check.outputs.changed == 'true' && '📥 updated' || '✓ no change' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.check.outputs.changed }}" = "true" ]; then
+            echo "📦 [下载最新 release](https://github.com/${{ github.repository }}/releases)" >> $GITHUB_STEP_SUMMARY
+          fi
