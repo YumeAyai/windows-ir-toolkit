@@ -51,11 +51,15 @@ jobs:
           echo "Querying Velocidex/WinPmem latest release..."
           WINPMEM_JSON=$(curl -fsSL "https://api.github.com/repos/Velocidex/WinPmem/releases/latest")
           WINPMEM_TAG=$(echo "$WINPMEM_JSON" | jq -r '.tag_name // empty')
-          WINPMEM_URL=$(echo "$WINPMEM_JSON" | jq -r '.assets[] | select(.name == "winpmem_mini_x64_rc2.exe") | .browser_download_url // empty')
+          WINPMEM_URL=$(echo "$WINPMEM_JSON" | jq -r '.assets[] | select(.name == "winpmem_mini_x64_rc2.exe") | .browser_download_url' 2>/dev/null)
+          echo "DEBUG: WINPMEM_URL='$WINPMEM_URL' (len=${#WINPMEM_URL})"
           if [ -z "$WINPMEM_URL" ] || [ "$WINPMEM_URL" = "null" ]; then
             echo "::error::Cannot find winpmem_mini_x64_rc2.exe in latest release"
-            echo "Available assets:"
-            echo "$WINPMEM_JSON" | jq -r '.assets[].name' 2>/dev/null || true
+            echo "DEBUG: First 800 chars of API response:"
+            echo "$WINPMEM_JSON" | head -c 800
+            echo ""
+            echo "DEBUG: Available assets:"
+            echo "$WINPMEM_JSON" | jq -r '.assets[].name // empty' 2>/dev/null || echo "(no assets array)"
             exit 1
           fi
           echo "tag=$WINPMEM_TAG" >> $GITHUB_OUTPUT
@@ -70,13 +74,16 @@ jobs:
           CAPA_TAG=$(echo "$CAPA_JSON" | jq -r '.tag_name // empty')
           CAPA_URL=$(echo "$CAPA_JSON" | jq -r --arg tag "$CAPA_TAG" '
             (.assets[] | select(.name == ("capa-\($tag)-windows.zip")) | .browser_download_url) //
-            (.assets[] | select((.name | test("windows"; "i")) and (.name | test("\\.zip$"))) | .browser_download_url) //
-            empty
-          ')
+            (.assets[] | select((.name | test("windows"; "i")) and (.name | test("\\.zip$"))) | .browser_download_url)
+          ' 2>/dev/null)
+          echo "DEBUG: CAPA_URL='$CAPA_URL' (len=${#CAPA_URL})"
           if [ -z "$CAPA_URL" ] || [ "$CAPA_URL" = "null" ]; then
             echo "::error::Cannot find capa windows zip in latest release"
-            echo "Available assets:"
-            echo "$CAPA_JSON" | jq -r '.assets[].name' 2>/dev/null || true
+            echo "DEBUG: First 800 chars of API response:"
+            echo "$CAPA_JSON" | head -c 800
+            echo ""
+            echo "DEBUG: Available assets:"
+            echo "$CAPA_JSON" | jq -r '.assets[].name // empty' 2>/dev/null || echo "(no assets array)"
             exit 1
           fi
           echo "tag=$CAPA_TAG" >> $GITHUB_OUTPUT
