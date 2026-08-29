@@ -1,0 +1,45 @@
+# 取证证据(绝不入仓!本地用即可)
+*.raw
+*.mem
+*.dmp
+*.vmem
+*.img
+*.dd
+*.E01
+
+# 内存 dump / 磁盘镜像相关
+*.raw.sha256
+*.hash
+**/evidence/**
+
+# 分析过程的中间产物
+analysis/
+output/
+*.csv.bak
+
+# Windows / 第三方
+Thumbs.db
+desktop.ini
+*.lnk
+
+# U 盘里手动放的二进制(README 里告诉用户去哪下,不进仓)
+01_获取/*.exe
+03_分析/**/*.exe
+05_符号表/**/*.zip
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+# 敏感信息(用户私有日志/客户数据)
+*.evtx
+*.log
+confidential/
