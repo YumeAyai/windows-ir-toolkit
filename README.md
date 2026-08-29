@@ -18,7 +18,7 @@ Windows 应急响应取证包 — 现场收集 + 内存分析 + 证据链追踪�
 | `02_collection/` | PowerShell 证据收集 + 入口 |
 | `03_analysis/` | 内存/PE 分析工具 |
 | `04_evidence/` | 证据链追踪模板 |
-| `05_symbols/` | Volatility 符号表 |
+| `05_symbols/` | 内存分析符号表 |
 
 ## License
 
