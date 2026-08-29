@@ -182,8 +182,11 @@ jobs:
           if [ -n "$EXISTING" ]; then
             echo "$EXISTING" | while IFS= read -r old; do
               [ -z "$old" ] && continue
-              echo "Deleting old release + tag: $old"
-              gh release delete "$old" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tags 2>&1 || true
+              echo "Deleting old release: $old"
+              gh release delete "$old" --repo "$GITHUB_REPOSITORY" --yes 2>&1 || true
+              # 单独删 git tag(因为 gh release delete 不带 --cleanup-tags)
+              echo "Deleting old tag: $old"
+              gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$old" 2>&1 | head -1 || true
             done
           fi
 
