@@ -195,25 +195,52 @@ jobs:
             --title "Forensics Tools - ${{ steps.winpmem.outputs.tag }} / ${{ steps.capa.outputs.tag }}" \
             --notes-file /tmp/release_notes.md
 
-          # 单独上传 assets(更可控)
+          # 单独上传单文件 assets
           gh release upload "$NEW_TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --clobber \
             01_acquire/winpmem_mini_x64_rc2.exe \
             SHA256SUMS 2>/dev/null || true
 
-          # 上传 capa(可能是目录或多文件)
           if [ -d "03_analysis" ]; then
             find 03_analysis -type f -name "capa.exe" -exec gh release upload "$NEW_TAG" {} --repo "$GITHUB_REPOSITORY" --clobber \; 2>/dev/null || true
-            # 也打包整个目录作为 zip,方便下载
-            if command -v zip >/dev/null 2>&1; then
-              (cd 03_analysis && zip -r /tmp/capa-bundle.zip .) 2>/dev/null || true
-              [ -f /tmp/capa-bundle.zip ] && gh release upload "$NEW_TAG" /tmp/capa-bundle.zip --repo "$GITHUB_REPOSITORY" --clobber 2>/dev/null || true
-            fi
           fi
 
           echo "Release created: $NEW_TAG"
           echo "URL: https://github.com/$GITHUB_REPOSITORY/releases/tag/$NEW_TAG"
+
+      - name: Build all-in-one zip
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          # 整个目录打成一个 zip,排除元数据/构建产物
+          zip -r ir-toolkit.zip . \
+            -x '.git/*' \
+            -x '.github/*' \
+            -x '.gitkeep' \
+            -x '.gitignore' \
+            -x 'SHA256SUMS' \
+            -x 'ir-toolkit.zip' \
+            -x 'tools-manifest.json' \
+            -x 'install_tools.ps1' \
+            -x 'install_tools.sh' \
+            -x '*.zip'
+          ls -la ir-toolkit.zip
+          echo "✓ Built all-in-one zip"
+
+      - name: Attach all-in-one zip to release
+        if: steps.check.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NEW_TAG="tools-${{ steps.winpmem.outputs.tag }}-${{ steps.capa.outputs.tag }}"
+          gh release upload "$NEW_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber \
+            ir-toolkit.zip
+          echo "✓ All-in-one zip attached: ir-toolkit.zip"
+          echo ""
+          echo "Release assets:"
+          gh release view "$NEW_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[] | "  - \(.name) (\(.size / 1048576 | floor)MB)"'
 
       - name: Summary
         if: always()
@@ -226,5 +253,7 @@ jobs:
           echo "| capa | ${{ steps.capa.outputs.tag }} | ${{ steps.check.outputs.changed == 'true' && '📥 updated' || '✓ no change' }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ "${{ steps.check.outputs.changed }}" = "true" ]; then
-            echo "📦 [下载最新 release](https://github.com/${{ github.repository }}/releases)" >> $GITHUB_STEP_SUMMARY
+            echo "📦 [下载完整包 (ir-toolkit.zip)](https://github.com/${{ github.repository }}/releases/latest)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**一个 zip,直接用**: 解压 → 拷 U 盘 → 管理员双击 02_collection/acquire.bat" >> $GITHUB_STEP_SUMMARY
           fi
