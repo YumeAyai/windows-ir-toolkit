@@ -34,10 +34,10 @@ powershell -ExecutionPolicy Bypass -File "%~dp0collect_artifacts.ps1" -OutputDir
 
 REM 3. Dump 内存
 echo [+] Dump 内存 (这一步会等几分钟到几十分钟,取决于内存大小)...
-if exist "%~dp001_获取\winpmem_mini_x64_rc2.exe" (
-    "%~dp001_获取\winpmem_mini_x64_rc2.exe" "%CASEDIR%\mem.raw"
+if exist "%~dp001_acquire\winpmem_mini_x64_rc2.exe" (
+    "%~dp001_acquire\winpmem_mini_x64_rc2.exe" "%CASEDIR%\mem.raw"
 ) else (
-    echo [!] 找不到 winpmem,请先把 01_获取\winpmem_mini_x64_rc2.exe 放到同目录
+    echo [!] 找不到 winpmem,请先把 01_acquire\winpmem_mini_x64_rc2.exe 放到同目录
 )
 
 REM 4. 算 hash

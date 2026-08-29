@@ -20,14 +20,14 @@
 IR_Toolkit/
 ├── README.md                       ← 本文件
 ├── LICENSE                         ← MIT
-├── 01_获取/                        ← 内存/磁盘 dump 工具 (空目录,需自行放 exe)
-├── 02_辅助收集/
+├── 01_acquire/                        ← 内存/磁盘 dump 工具 (空目录,需自行放 exe)
+├── 02_collection/
 │   ├── collect_artifacts.ps1       ← ★ 主力 PowerShell 脚本(254 行)
 │   └── acquire.bat                 ← ★ 管理员双击运行入口
-├── 03_分析/                        ← 现场可选分析工具(Volatility3 / capa)
-├── 04_记录/
+├── 03_analysis/                        ← 现场可选分析工具(Volatility3 / capa)
+├── 04_evidence/
 │   └── chain_of_custody.csv        ← 证据链追踪模板
-└── 05_符号表/                      ← Volatility symbols (可选,体积大)
+└── 05_symbols/                      ← Volatility symbols (可选,体积大)
 ```
 
 ## 🚀 快速开始
@@ -37,7 +37,7 @@ IR_Toolkit/
 1. **不要关机**,拔网线 / 断 VPN
 2. 把整个 `IR_Toolkit` 目录拷到 U 盘
 3. 以管理员身份在受害机上 `cd` 到 U 盘目录
-4. 双击运行 `02_辅助收集\acquire.bat`
+4. 双击运行 `02_collection\acquire.bat`
 5. 等 5-30 分钟(取决于内存大小)
 6. 压缩 `C:\evidence\CS-*\`,传回分析机
 
@@ -117,7 +117,7 @@ python3 CobaltStrikeParser/CobaltStrikeParser.py -i mem.raw -o cs_config.json
 - JA3 (Cobalt Strike Beacon): `a0e9f5d64349fb13191bc781f81f42e1`
 - 伪装 SNI: `*.sginput.qq.com` / `*.browser.360.cn` / `*.pinyin.sogou.com`
 
-**推荐动作**:见 `02_辅助收集/collect_artifacts.ps1` 注释中的 CS 专项 checklist
+**推荐动作**:见 `02_collection/collect_artifacts.ps1` 注释中的 CS 专项 checklist
 
 ## 📜 License
 

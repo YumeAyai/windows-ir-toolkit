@@ -117,20 +117,20 @@ jobs:
       - name: Download WinPmem
         if: steps.check.outputs.changed == 'true'
         run: |
-          mkdir -p 01_获取
+          mkdir -p 01_acquire
           echo "Downloading ${{ steps.winpmem.outputs.url }}..."
-          curl -fsSL --retry 3 --retry-delay 5 -o 01_获取/winpmem_mini_x64_rc2.exe "${{ steps.winpmem.outputs.url }}"
-          ls -la 01_获取/
-          file 01_获取/winpmem_mini_x64_rc2.exe 2>/dev/null || true
+          curl -fsSL --retry 3 --retry-delay 5 -o 01_acquire/winpmem_mini_x64_rc2.exe "${{ steps.winpmem.outputs.url }}"
+          ls -la 01_acquire/
+          file 01_acquire/winpmem_mini_x64_rc2.exe 2>/dev/null || true
 
       - name: Download capa
         if: steps.check.outputs.changed == 'true'
         run: |
-          mkdir -p 03_分析
+          mkdir -p 03_analysis
           echo "Downloading ${{ steps.capa.outputs.url }}..."
           curl -fsSL --retry 3 --retry-delay 5 -o /tmp/capa.zip "${{ steps.capa.outputs.url }}"
           # 展开 zip,但只保留 windows-x64 的可执行文件
-          cd 03_分析
+          cd 03_analysis
           unzip -o /tmp/capa.zip
           rm -f /tmp/capa.zip
           # 找到主程序,简化命名
@@ -146,7 +146,7 @@ jobs:
             echo "# WinPmem: ${{ steps.winpmem.outputs.tag }}"
             echo "# capa:    ${{ steps.capa.outputs.tag }}"
             echo ""
-            find 01_获取 03_分析 -type f \( -name "*.exe" -o -name "capa*" \) -exec sha256sum {} \;
+            find 01_acquire 03_analysis -type f \( -name "*.exe" -o -name "capa*" \) -exec sha256sum {} \;
           } > SHA256SUMS
           cat SHA256SUMS
 
@@ -199,15 +199,15 @@ jobs:
           gh release upload "$NEW_TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --clobber \
-            01_获取/winpmem_mini_x64_rc2.exe \
+            01_acquire/winpmem_mini_x64_rc2.exe \
             SHA256SUMS 2>/dev/null || true
 
           # 上传 capa(可能是目录或多文件)
-          if [ -d "03_分析" ]; then
-            find 03_分析 -type f -name "capa.exe" -exec gh release upload "$NEW_TAG" {} --repo "$GITHUB_REPOSITORY" --clobber \; 2>/dev/null || true
+          if [ -d "03_analysis" ]; then
+            find 03_analysis -type f -name "capa.exe" -exec gh release upload "$NEW_TAG" {} --repo "$GITHUB_REPOSITORY" --clobber \; 2>/dev/null || true
             # 也打包整个目录作为 zip,方便下载
             if command -v zip >/dev/null 2>&1; then
-              (cd 03_分析 && zip -r /tmp/capa-bundle.zip .) 2>/dev/null || true
+              (cd 03_analysis && zip -r /tmp/capa-bundle.zip .) 2>/dev/null || true
               [ -f /tmp/capa-bundle.zip ] && gh release upload "$NEW_TAG" /tmp/capa-bundle.zip --repo "$GITHUB_REPOSITORY" --clobber 2>/dev/null || true
             fi
           fi

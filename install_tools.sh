@@ -20,7 +20,7 @@ echo -e "${CYAN}[*] 仓库: $REPO${NC}"
 echo ""
 
 # 创建目录
-mkdir -p "$OUTPUT_DIR/01_获取" "$OUTPUT_DIR/03_分析"
+mkdir -p "$OUTPUT_DIR/01_acquire" "$OUTPUT_DIR/03_analysis"
 
 # ============== 找最新 tools-* release ==============
 echo -e "${GREEN}[+] 查询 GitHub 最新 tools release...${NC}"
@@ -62,7 +62,7 @@ while IFS=$'\t' read -r NAME URL SIZE; do
     echo -e "  ${CYAN}[↓]${NC} $NAME ($SIZE_MB MB)..."
 
     if [[ "$NAME" == winpmem* ]]; then
-        TARGET="$OUTPUT_DIR/01_获取/$NAME"
+        TARGET="$OUTPUT_DIR/01_acquire/$NAME"
     else
         TARGET="$TEMP_DIR/$NAME"
     fi
@@ -84,13 +84,13 @@ if [ -n "$CAPA_ZIP" ]; then
     mkdir -p "$TEMP_DIR/capa_extracted"
     unzip -q "$CAPA_ZIP" -d "$TEMP_DIR/capa_extracted"
 
-    # 找到 capa.exe,放到 03_分析/capa/
+    # 找到 capa.exe,放到 03_analysis/capa/
     CAPA_EXE=$(find "$TEMP_DIR/capa_extracted" -name "capa.exe" | head -1)
     if [ -n "$CAPA_EXE" ]; then
-        mkdir -p "$OUTPUT_DIR/03_分析/capa"
-        cp -r "$(dirname "$CAPA_EXE")"/* "$OUTPUT_DIR/03_分析/capa/"
-        chmod +x "$OUTPUT_DIR/03_分析/capa/capa.exe"
-        echo -e "    ${GREEN}✓ capa 已放到 03_分析/capa/${NC}"
+        mkdir -p "$OUTPUT_DIR/03_analysis/capa"
+        cp -r "$(dirname "$CAPA_EXE")"/* "$OUTPUT_DIR/03_analysis/capa/"
+        chmod +x "$OUTPUT_DIR/03_analysis/capa/capa.exe"
+        echo -e "    ${GREEN}✓ capa 已放到 03_analysis/capa/${NC}"
     fi
 fi
 
@@ -108,5 +108,5 @@ echo "    - FTK Imager         https://www.exterro.com/ftk-imager"
 echo "    - Magnet RAM Capture https://www.magnetforensics.com/"
 echo "    - DumpIt             https://www.comae.com/"
 echo ""
-echo -e "${CYAN}[*] Windows 取证: 把整个目录拷到 U 盘,双击 02_辅助收集\\acquire.bat${NC}"
+echo -e "${CYAN}[*] Windows 取证: 把整个目录拷到 U 盘,双击 02_collection\\acquire.bat${NC}"
 echo -e "${CYAN}[*] 内存分析:  vol -f mem.raw windows.pstree  (需要 vol3)${NC}"

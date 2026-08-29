@@ -9,7 +9,7 @@
       "type": "auto",
       "source": "github:Velocidex/WinPmem",
       "asset_name": "winpmem_mini_x64_rc2.exe",
-      "target_path": "01_获取/",
+      "target_path": "01_acquire/",
       "size_mb_approx": 5
     },
     "capa": {
@@ -17,7 +17,7 @@
       "type": "auto",
       "source": "github:mandiant/capa",
       "asset_pattern": "*windows*.zip",
-      "target_path": "03_分析/",
+      "target_path": "03_analysis/",
       "size_mb_approx": 25
     },
     "ftk_imager": {
@@ -25,7 +25,7 @@
       "type": "manual",
       "reason": "官方下载需注册账号,无法自动获取",
       "download_url": "https://www.exterro.com/ftk-imager",
-      "target_path": "01_获取/FTK_Imager.exe",
+      "target_path": "01_acquire/FTK_Imager.exe",
       "size_mb_approx": 50
     },
     "magnet_ram_capture": {
@@ -33,7 +33,7 @@
       "type": "manual",
       "reason": "官方下载需注册账号",
       "download_url": "https://www.magnetforensics.com/resources/magnet-ram-capture/",
-      "target_path": "01_获取/MagnetRAMCapture.exe",
+      "target_path": "01_acquire/MagnetRAMCapture.exe",
       "size_mb_approx": 10
     },
     "dumpit": {
@@ -41,7 +41,7 @@
       "type": "manual",
       "reason": "官方下载需注册账号",
       "download_url": "https://www.comae.com/",
-      "target_path": "01_获取/DumpIt.exe",
+      "target_path": "01_acquire/DumpIt.exe",
       "size_mb_approx": 2
     }
   },

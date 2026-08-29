@@ -3,7 +3,7 @@
     下载 windows-ir-toolkit 所需的全部取证工具
 
 .DESCRIPTION
-    从 GitHub Releases 拉取最新的 tools-* release,自动放到 01_获取/ 和 03_分析/
+    从 GitHub Releases 拉取最新的 tools-* release,自动放到 01_acquire/ 和 03_analysis/
     自动跳过需要手动下载的工具(FTK Imager / Magnet / DumpIt),只给提示
 
 .PARAMETER OutputDir
@@ -30,8 +30,8 @@ Write-Host "[*] 仓库: $Repo" -ForegroundColor Cyan
 Write-Host ""
 
 # 创建目录
-New-Item -ItemType Directory -Force -Path "$OutputDir\01_获取" | Out-Null
-New-Item -ItemType Directory -Force -Path "$OutputDir\03_分析" | Out-Null
+New-Item -ItemType Directory -Force -Path "$OutputDir\01_acquire" | Out-Null
+New-Item -ItemType Directory -Force -Path "$OutputDir\03_analysis" | Out-Null
 
 # ============== 找最新 tools-* release ==============
 Write-Host "[+] 查询 GitHub 最新 tools release..." -ForegroundColor Green
@@ -71,7 +71,7 @@ foreach ($asset in $release.assets) {
 
     # 决定目标位置
     if ($name -like "winpmem*") {
-        $targetPath = Join-Path $OutputDir "01_获取\$name"
+        $targetPath = Join-Path $OutputDir "01_acquire\$name"
     } elseif ($name -like "capa*" -or $name -like "*.zip") {
         $targetPath = Join-Path $tempDir $name
     } else {
@@ -99,16 +99,16 @@ if ($capaZip) {
         Expand-Archive -Path $zip.FullName -DestinationPath $tempDir\capa_extracted -Force
     }
 
-    # 找到 capa.exe 并放到 03_分析
+    # 找到 capa.exe 并放到 03_analysis
     $capaExe = Get-ChildItem $tempDir\capa_extracted -Recurse -Filter "capa.exe" -ErrorAction SilentlyContinue |
         Select-Object -First 1
 
     if ($capaExe) {
         # 复制整个目录(包含 dll 等依赖)
         $capaDir = $capaExe.DirectoryName
-        $targetCapa = Join-Path $OutputDir "03_分析\capa"
+        $targetCapa = Join-Path $OutputDir "03_analysis\capa"
         Copy-Item -Path $capaDir\* -Destination $targetCapa -Recurse -Force
-        Write-Host "    ✓ capa 已放到 03_分析\capa\" -ForegroundColor Green
+        Write-Host "    ✓ capa 已放到 03_analysis\capa\" -ForegroundColor Green
     }
 }
 
@@ -119,7 +119,7 @@ $expectedHashes = $release.body | Select-String -Pattern "([a-f0-9]{64})" -AllMa
     ForEach-Object { $_.Matches.Value }
 
 if ($expectedHashes) {
-    foreach ($file in Get-ChildItem $OutputDir\01_获取, $OutputDir\03_分析\capa -Recurse -File -ErrorAction SilentlyContinue) {
+    foreach ($file in Get-ChildItem $OutputDir\01_acquire, $OutputDir\03_analysis\capa -Recurse -File -ErrorAction SilentlyContinue) {
         $actual = (Get-FileHash -Algorithm SHA256 $file.FullName).Hash.ToLower()
         if ($expectedHashes -contains $actual) {
             Write-Host "    ✓ $($file.Name): hash 匹配" -ForegroundColor Green
@@ -145,4 +145,4 @@ Write-Host "    - FTK Imager        https://www.exterro.com/ftk-imager" -Foregro
 Write-Host "    - Magnet RAM Capture https://www.magnetforensics.com/" -ForegroundColor Yellow
 Write-Host "    - DumpIt            https://www.comae.com/" -ForegroundColor Yellow
 Write-Host ""
-Write-Host "[*] 接下来: 双击 02_辅助收集\acquire.bat 开始取证" -ForegroundColor Cyan
+Write-Host "[*] 接下来: 双击 02_collection\acquire.bat 开始取证" -ForegroundColor Cyan
