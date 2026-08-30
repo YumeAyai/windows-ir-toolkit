@@ -1,78 +1,76 @@
 @echo off
 REM ============================================================
-REM Windows Ó¦¼±ÏìÓ¦Ò»¼üÆô¶¯(Õë¶Ô Cobalt Strike / RAT)
-REM ±ØÐëÒÔ¹ÜÀíÔ±È¨ÏÞÔËÐÐ(½Å±¾»á×Ô¶¯¼ì²â²¢ÇëÇóÌáÈ¨)
+REM Windows åº”æ€¥å“åº”ä¸€é”®å¯åŠ¨(é’ˆå¯¹ Cobalt Strike / RAT)
+REM å¿…é¡»ä»¥ç®¡ç†å‘˜æƒé™è¿è¡Œ(è„šæœ¬ä¼šè‡ªåŠ¨æ£€æµ‹å¹¶è¯·æ±‚ææƒ)
 REM ============================================================
 
-REM ²»¿ª chcp 65001,bat ÊÇ GBK ±àÂë,ÖÐÎÄ cmd Ä¬ÈÏ°´ GBK ½âÎö
+REM ä¸ä¾èµ– delayed expansion,æ‰€æœ‰å˜é‡åœ¨ set åŽç«‹å³å¯ç”¨
+REM æ‰€æœ‰è·¯å¾„åŠ å¼•å·,é˜²ç©ºæ ¼ / ä¸­æ–‡è·¯å¾„
 
-REM ½×¶Î 0: ×Ô¶¯ÌáÈ¨
+REM ----- é˜¶æ®µ 0: è‡ªåŠ¨ææƒ -----
 net session >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [!] ÐèÒª¹ÜÀíÔ±È¨ÏÞ,×Ô¶¯ÇëÇóÌáÈ¨...
-    powershell -Command "Start-Process cmd.exe -ArgumentList '/c \"\"%~f0\"\"' -Verb RunAs"
+if errorlevel 1 (
+    echo [WARN] Not running as Administrator. Requesting elevation...
+    powershell -Command "Start-Process -FilePath '%~f0' -Verb RunAs"
     exit /b
 )
 
-setlocal enabledelayedexpansion
-
-REM ¹¤¾ß°ü¸ùÄ¿Â¼(´Ó 02_collection\ »Øµ½²Ö¸ù)
+REM ----- å·¥å…·åŒ…æ ¹ç›®å½• -----
+REM bat åœ¨ 02_collection\ ä¸‹,çˆ¶ç›®å½•å°±æ˜¯å·¥å…·æ ¹
 set "TOOLKIT_ROOT=%~dp0.."
 
-echo.
-echo ============================================================
-echo   IR Toolkit - Ó¦¼±ÏìÓ¦Ò»¼üÆô¶¯
-echo   Ê±¼ä: %date% %time%
-echo   ¹¤¾ß¸ù: %TOOLKIT_ROOT%
-echo ============================================================
-echo.
-
-REM 1. ´´½¨Ö¤¾ÝÄ¿Â¼(ÓÃÒýºÅ°ü¹ü,·À¿Õ¸ñÂ·¾¶)
+REM ----- è¯æ®ç›®å½• + æ—¶é—´æˆ³ -----
 set "EVDIR=C:\evidence"
 if not exist "%EVDIR%" mkdir "%EVDIR%"
+set "YEAR=%date:~0,4%"
+set "MON=%date:~5,2%"
+set "DAY=%date:~8,2%"
+set "HH=%time:~0,2%"
+set "MM=%time:~3,2%"
+set "SS=%time:~6,2%"
+REM æ—¶åˆ†ç§’çš„å°æ—¶å¯èƒ½æ˜¯ " 1" å‰å¯¼ç©ºæ ¼,è¡¥ 0
+if "%HH:~0,1%"==" " set "HH=0%HH:~1,1%"
+set "CASEDIR=%EVDIR%\IR-%YEAR%%MON%%DAY%-%HH%%MM%%SS%"
+mkdir "%CASEDIR%" 2>nul
+echo [+] Case directory: %CASEDIR%
+echo.
 
-REM Ê±¼ä´Á´¦Àí(ÖÐÎÄÏµÍ³ date ¸ñÊ½¿ÉÄÜº¬¿Õ¸ñ»òÐ±¸Ü,Í³Ò»Ìæ»»)
-set "TS=%date:~0,4%%date:~5,2%%date:~8,2%_%time:~0,2%%time:~3,2%%time:~6,2%"
-set "TS=!TS: =0!"
-set "TS=!TS:/=!"
-set "TS=!TS:\=!"
-set "CASEDIR=%EVDIR%\IR-!TS!"
-mkdir "!CASEDIR!" 2>nul
-echo [+] °¸¼þÄ¿Â¼: !CASEDIR!
-
-REM 2. ÊÕ¼¯ artifacts(ps1 ×ÔÉíÒ²»áÌáÈ¨,ÕâÀïÖ±½Óµ÷)
-echo [+] ÊÕ¼¯ artifacts(5-30 ·ÖÖÓ)...
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0collect_artifacts.ps1" -OutputDir "!CASEDIR!"
+REM ----- é˜¶æ®µ 1: æ”¶é›† artifacts -----
+echo [+] Collecting artifacts (5-30 minutes)...
+set "PS1=%~dp0collect_artifacts.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%PS1%" -OutputDir "%CASEDIR%"
 if errorlevel 1 (
-    echo [!] collect_artifacts.ps1 Ê§°Ü,¼ÌÐøÖ´ÐÐÄÚ´æ dump
+    echo [WARN] collect_artifacts.ps1 exited with error. Continue to memory dump...
 )
 
-REM 3. Dump ÄÚ´æ(¹Ø¼üÐÞ¸´:%~dp0..\01_acquire,²»ÊÇ %~dp001_acquire)
+REM ----- é˜¶æ®µ 2: Dump å†…å­˜ -----
 set "WINPMEM=%TOOLKIT_ROOT%\01_acquire\winpmem_mini_x64_rc2.exe"
-echo [+] Dump ÄÚ´æ(µÈ¼¸·ÖÖÓµ½¼¸Ê®·ÖÖÓ)...
+echo.
+echo [+] Dumping memory (may take several minutes)...
 if exist "%WINPMEM%" (
-    "%WINPMEM%" "!CASEDIR!\mem.raw"
+    "%WINPMEM%" "%CASEDIR%\mem.raw"
 ) else (
-    echo [!] ÕÒ²»µ½ winpmem:%WINPMEM%
-    echo     Çë´Ó GitHub Releases ÏÂÔØÍêÕû ir-toolkit.zip,»òÅÜ install_tools.ps1
+    echo [WARN] winpmem not found at: %WINPMEM%
+    echo        Download the full ir-toolkit.zip from GitHub Releases, or run install_tools.ps1
 )
 
-REM 4. Ëã hash(mem.raw ¿ÉÄÜ²»´æÔÚ,ÏÈ¼ì²é)
-echo [+] ¼ÆËã SHA256...
-if exist "!CASEDIR!\mem.raw" (
-    powershell -NoProfile -Command "Get-FileHash -Algorithm SHA256 '!CASEDIR!\mem.raw' | Out-File '!CASEDIR!\mem.raw.sha256.txt' -Encoding utf8"
+REM ----- é˜¶æ®µ 3: ç®— SHA256 -----
+echo.
+echo [+] Computing SHA256...
+if exist "%CASEDIR%\mem.raw" (
+    powershell -NoProfile -Command "Get-FileHash -Algorithm SHA256 '%CASEDIR%\mem.raw' | Out-File '%CASEDIR%\mem.raw.sha256.txt' -Encoding utf8"
 ) else (
-    echo [!] mem.raw ²»´æÔÚ,Ìø¹ý hash ¼ÆËã
+    echo [WARN] mem.raw missing. Skipping hash.
 )
 
 echo.
 echo ============================================================
-echo   Íê³É!
-echo   °¸¼þÄ¿Â¼:!CASEDIR!
+echo [OK] Done.
+echo     Case: %CASEDIR%
 echo.
-echo   ÏÂÒ»²½:
-echo   1. °Î U ÅÌ
-echo   2. Ñ¹ËõÕû¸ö !CASEDIR! Ä¿Â¼
-echo   3. °²È«´«»Ø·ÖÎö»ú
+echo     Next steps:
+echo       1. Remove USB drive
+echo       2. Compress the entire %CASEDIR% folder
+echo       3. Transfer securely to analysis workstation
 echo ============================================================
 pause
