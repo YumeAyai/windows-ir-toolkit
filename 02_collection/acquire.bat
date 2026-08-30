@@ -1,53 +1,53 @@
-@echo off
+﻿@echo off
 REM ============================================================
-REM Windows 应急响应一键启动 (针对 Cobalt Strike / RAT)
-REM 必须以管理员权限运行!
+REM Windows IR one-click acquirer
+REM Must run as Administrator!
 REM ============================================================
 
 setlocal enabledelayedexpansion
 
 echo.
 echo ============================================================
-echo   IR Toolkit - 应急响应一键启动
-echo   时间: %date% %time%
+echo   IR Toolkit - Incident Response One-Click
+echo   Time: %date% %time%
 echo ============================================================
 echo.
 
-REM 检权限
+REM Check admin rights
 net session >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [!] 需要管理员权限!右键此脚本 → "以管理员身份运行"
+    echo [!] Requires Administrator. Right-click this script - Run as administrator.
     pause
     exit /b 1
 )
 
-REM 1. 创建证据目录
+REM 1. Create evidence directory
 set EVDIR=C:\evidence
-set CASEDIR=%EVDIR%\CS-%date:~0,4%%date:~5,2%%date:~8,2%-%time:~0,2%%time:~3,2%%time:~6,2%
+set CASEDIR=%EVDIR%\IR-%date:~0,4%%date:~5,2%%date:~8,2%-%time:~0,2%%time:~3,2%%time:~6,2%
 set CASEDIR=%CASEDIR: =0%
 mkdir "%CASEDIR%" 2>nul
-echo [+] 案件目录: %CASEDIR%
+echo [+] Case dir: %CASEDIR%
 
-REM 2. 收集 artifacts
-echo [+] 收集系统信息...
+REM 2. Collect artifacts
+echo [+] Collecting artifacts...
 powershell -ExecutionPolicy Bypass -File "%~dp0collect_artifacts.ps1" -OutputDir "%CASEDIR%" %*
 
-REM 3. Dump 内存
-echo [+] Dump 内存 (这一步会等几分钟到几十分钟,取决于内存大小)...
+REM 3. Dump memory
+echo [+] Dumping memory (takes several minutes depending on RAM size)...
 if exist "%~dp001_acquire\winpmem_mini_x64_rc2.exe" (
     "%~dp001_acquire\winpmem_mini_x64_rc2.exe" "%CASEDIR%\mem.raw"
 ) else (
-    echo [!] 找不到 winpmem,请先把 01_acquire\winpmem_mini_x64_rc2.exe 放到同目录
+    echo [!] winpmem not found. Please copy 01_acquire\winpmem_mini_x64_rc2.exe to toolkit root.
 )
 
-REM 4. 算 hash
-echo [+] 计算 hash...
+REM 4. Compute hash
+echo [+] Computing SHA256...
 powershell -Command "Get-FileHash -Algorithm SHA256 '%CASEDIR%\mem.raw' | Out-File '%CASEDIR%\mem.raw.sha256.txt'"
 
 echo.
 echo ============================================================
-echo   完成!
-echo   案件: %CASEDIR%
-echo   下一步: 压缩整个目录,安全传输到分析机
+echo   Done!
+echo   Case: %CASEDIR%
+echo   Next: compress entire dir, transfer to analysis workstation
 echo ============================================================
 pause

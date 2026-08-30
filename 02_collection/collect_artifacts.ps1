@@ -1,15 +1,17 @@
-<#
+﻿<#
 .SYNOPSIS
-    Windows 应急响应一键证据收集脚本 (针对 Cobalt Strike / RAT 类事件)
+    Windows IR one-click evidence collector
 
 .DESCRIPTION
-    用法: .\collect_artifacts.ps1 -OutputDir C:\evidence
-    必须以管理员权限运行
+    Usage: .\collect_artifacts.ps1 -OutputDir C:\evidence
+    Must run as Administrator
 
 .NOTES
-    Version: 1.0
-    Author:  IR Toolkit
-    Date:    2026-08-30
+    - All output files are UTF-8 (BOM) for cross-platform analysis
+    - All paths/filenames are ASCII-only to avoid regional encoding issues
+    - Tested on PowerShell 5.1+ and PowerShell 7+
+
+    Version: 1.1
 #>
 
 [CmdletBinding()]
@@ -17,15 +19,27 @@ param(
     [Parameter(Mandatory=$true)]
     [string]$OutputDir = "C:\evidence",
 
-    [string]$CaseID = "CS-$(Get-Date -Format 'yyyyMMdd-HHmmss')",
+    [string]$CaseID = "IR-$(Get-Date -Format 'yyyyMMdd-HHmmss')",
 
-    [switch]$LightMode   # 只收集最关键项,减少取证时间
+    [switch]$LightMode
 )
 
-# ============== 初始化 ==============
+# ============== Force UTF-8 everywhere ==============
+# PowerShell 5.1 default encoding is system locale (CP936 on Chinese Windows)
+# Override to UTF-8 BOM for all output files
+$PSDefaultParameterValues['Out-File:Encoding'] = 'utf8'
+$PSDefaultParameterValues['Export-Csv:Encoding'] = 'utf8'
+$PSDefaultParameterValues['Set-Content:Encoding'] = 'utf8'
+$PSDefaultParameterValues['Add-Content:Encoding'] = 'utf8'
+try {
+    $PSDefaultParameterValues['*:Encoding'] = 'utf8'
+} catch {}
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+
+# ============== Init ==============
 $ErrorActionPreference = "Continue"
 $CaseDir = Join-Path $OutputDir $CaseID
-$null = New-Item -ItemType Directory -Force -Path $CaseDir
 $null = New-Item -ItemType Directory -Force -Path "$CaseDir\01_system"
 $null = New-Item -ItemType Directory -Force -Path "$CaseDir\02_process"
 $null = New-Item -ItemType Directory -Force -Path "$CaseDir\03_network"
@@ -33,37 +47,36 @@ $null = New-Item -ItemType Directory -Force -Path "$CaseDir\04_persistence"
 $null = New-Item -ItemType Directory -Force -Path "$CaseDir\05_logs"
 $null = New-Item -ItemType Directory -Force -Path "$CaseDir\06_files"
 
-Write-Host "[*] 案件: $CaseID" -ForegroundColor Cyan
-Write-Host "[*] 输出: $CaseDir" -ForegroundColor Cyan
-Write-Host "[*] 时间: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`n"
+Write-Host "[*] Case: $CaseID" -ForegroundColor Cyan
+Write-Host "[*] Output: $CaseDir" -ForegroundColor Cyan
+Write-Host "[*] Time: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor Cyan
+Write-Host ""
 
-# ============== 1. 系统信息 ==============
-Write-Host "[+] 1/8 系统信息..." -ForegroundColor Green
+# ============== 1. System info ==============
+Write-Host "[+] 1/8 System info..." -ForegroundColor Green
 systeminfo | Out-File "$CaseDir\01_system\systeminfo.txt"
 hostname | Out-File "$CaseDir\01_system\hostname.txt"
 whoami /all | Out-File "$CaseDir\01_system\whoami.txt"
 Get-ComputerInfo -Property * | Out-File "$CaseDir\01_system\computerinfo.txt" -ErrorAction SilentlyContinue
 Get-HotFix | Out-File "$CaseDir\01_system\hotfix.txt"
-
-# 时间同步信息
 w32tm /query /status | Out-File "$CaseDir\01_system\time_sync.txt" -ErrorAction SilentlyContinue
 
-# ============== 2. 进程信息 (CS 重点) ==============
-Write-Host "[+] 2/8 进程信息..." -ForegroundColor Green
+# ============== 2. Process info ==============
+Write-Host "[+] 2/8 Process info..." -ForegroundColor Green
 
-# 全进程列表 + 服务
+# Full process list
 Get-Process | Select-Object Id, ProcessName, Path, Company, Description, StartTime |
     Sort-Object StartTime | Export-Csv "$CaseDir\02_process\pslist.csv" -NoTypeInformation
 
-# 带命令行的进程 (找 rundll32 / powershell -enc 之类)
+# Process with command line (CS detection: rundll32 / powershell -enc)
 Get-CimInstance Win32_Process |
     Select-Object ProcessId, ParentProcessId, Name, CommandLine, CreationDate |
     Export-Csv "$CaseDir\02_process\pslist_wmic.csv" -NoTypeInformation
 
-# 任务列表 / 服务
+# Task list / services
 tasklist /svc | Out-File "$CaseDir\02_process\tasklist_svc.txt"
 
-# DLL 列表 (重点进程)
+# DLLs of running processes
 Get-Process | Where-Object { $_.Path -ne $null } | ForEach-Object {
     $procName = $_.ProcessName
     try {
@@ -73,8 +86,8 @@ Get-Process | Where-Object { $_.Path -ne $null } | ForEach-Object {
     } catch {}
 }
 
-# 可疑父进程关系 (CS 经典:Office/浏览器 -> rundll32/dllhost)
-Write-Host "    - 父进程关系..." -ForegroundColor DarkGreen
+# Parent-child process tree (CS classic: Office -> rundll32 / dllhost)
+Write-Host "    - Process tree..." -ForegroundColor DarkGreen
 Get-CimInstance Win32_Process | Where-Object {
     $_.ParentProcessId -ne 0
 } | ForEach-Object {
@@ -88,45 +101,31 @@ Get-CimInstance Win32_Process | Where-Object {
     }
 } | Export-Csv "$CaseDir\02_process\process_tree.csv" -NoTypeInformation
 
-# ============== 3. 网络信息 (CS 重点:20.212/153.3/101.37 + 11.x) ==============
-Write-Host "[+] 3/8 网络信息..." -ForegroundColor Green
+# ============== 3. Network info ==============
+Write-Host "[+] 3/8 Network info..." -ForegroundColor Green
 netstat -anob | Out-File "$CaseDir\03_network\netstat_anob.txt"
 netstat -ano | Out-File "$CaseDir\03_network\netstat_ano.txt"
-
-# DNS 缓存
 ipconfig /displaydns | Out-File "$CaseDir\03_network\dns_cache.txt"
-
-# ARP 表
 arp -a | Out-File "$CaseDir\03_network\arp.txt"
-
-# 路由表
 route print | Out-File "$CaseDir\03_network\routes.txt"
-
-# 防火墙规则
 netsh advfirewall show allprofiles | Out-File "$CaseDir\03_network\firewall.txt"
 netsh advfirewall firewall show rule name=all | Out-File "$CaseDir\03_network\firewall_rules.txt"
-
-# SMB 连接 (横向移动痕迹)
 Get-SmbConnection | Out-File "$CaseDir\03_network\smb_connections.txt" -ErrorAction SilentlyContinue
-
-# 网络共享
 net session | Out-File "$CaseDir\03_network\net_session.txt" -ErrorAction SilentlyContinue
 net use | Out-File "$CaseDir\03_network\net_use.txt"
 net share | Out-File "$CaseDir\03_network\net_share.txt"
-
-# RDP 会话
 query session | Out-File "$CaseDir\03_network\rdp_sessions.txt" -ErrorAction SilentlyContinue
 
-# ============== 4. 持久化 (CS 重点) ==============
-Write-Host "[+] 4/8 持久化检查..." -ForegroundColor Green
+# ============== 4. Persistence ==============
+Write-Host "[+] 4/8 Persistence checks..." -ForegroundColor Green
 
-# 计划任务
+# Scheduled tasks
 schtasks /query /fo LIST /v | Out-File "$CaseDir\04_persistence\schtasks.txt"
 Get-ScheduledTask | Get-ScheduledTaskInfo |
     Select-Object TaskName, TaskPath, State, LastRunTime, NextRunTime |
     Export-Csv "$CaseDir\04_persistence\schtasks_summary.csv" -NoTypeInformation
 
-# 注册表 Run 键 (CS 经典持久化)
+# Registry Run keys
 $runKeys = @(
     "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run",
     "HKLM:\Software\Microsoft\Windows\CurrentVersion\RunOnce",
@@ -143,20 +142,19 @@ foreach ($key in $runKeys) {
     reg export $key "$CaseDir\04_persistence\reg_$safeName.reg" 2>$null
 }
 
-# WMI 持久化 (CS / 高级攻击常用)
+# WMI persistence (used by advanced attackers)
 Get-WmiObject -Namespace "root\subscription" -Class __EventConsumer |
     Export-Csv "$CaseDir\04_persistence\wmi_consumers.csv" -NoTypeInformation -ErrorAction SilentlyContinue
 Get-WmiObject -Namespace "root\subscription" -Class __EventFilter |
     Export-Csv "$CaseDir\04_persistence\wmi_filters.csv" -NoTypeInformation -ErrorAction SilentlyContinue
 
-# 服务 (CS 偶尔用服务持久化)
+# Services
 Get-WmiObject Win32_Service | Select-Object Name, DisplayName, State, StartMode, PathName |
     Export-Csv "$CaseDir\04_persistence\services.csv" -NoTypeInformation
 
-# ============== 5. 日志 (CS 重点) ==============
-Write-Host "[+] 5/8 事件日志..." -ForegroundColor Green
+# ============== 5. Event logs ==============
+Write-Host "[+] 5/8 Event logs..." -ForegroundColor Green
 
-# 关键日志导出
 $logs = @("Security", "System", "Application",
           "Microsoft-Windows-PowerShell/Operational",
           "Microsoft-Windows-Sysmon/Operational",
@@ -167,30 +165,30 @@ foreach ($log in $logs) {
     wevtutil epl $log "$CaseDir\05_logs\${safeLog}.evtx" 2>$null
 }
 
-# 最近 24h 的安全事件
+# Security events (last 24h)
 Get-WinEvent -FilterHashtable @{LogName='Security'; StartTime=(Get-Date).AddDays(-1)} -ErrorAction SilentlyContinue |
     Select-Object TimeCreated, Id, ProviderName, Message |
     Export-Csv "$CaseDir\05_logs\security_24h.csv" -NoTypeInformation
 
-# 4624/4625 登录事件 (爆破/横向)
+# Logon events (last 7d) - detect brute force / lateral
 Get-WinEvent -FilterHashtable @{LogName='Security'; Id=@(4624,4625,4648,4672,4688); StartTime=(Get-Date).AddDays(-7)} -ErrorAction SilentlyContinue |
     Select-Object TimeCreated, Id, @{N='User';E={$_.Properties[5].Value}}, @{N='LogonType';E={$_.Properties[8].Value}} |
     Export-Csv "$CaseDir\05_logs\logon_events_7d.csv" -NoTypeInformation
 
-# ============== 6. 文件系统痕迹 ==============
-Write-Host "[+] 6/8 文件痕迹..." -ForegroundColor Green
+# ============== 6. File system ==============
+Write-Host "[+] 6/8 File artifacts..." -ForegroundColor Green
 
-# Prefetch (程序执行记录,关键)
+# Prefetch (program execution history)
 Copy-Item "$env:SystemRoot\Prefetch\*.pf" "$CaseDir\06_files\prefetch\" -Force -ErrorAction SilentlyContinue
 
-# 近期文件
+# Recent files
 $recentDays = -7
 $recentFiles = Get-ChildItem -Path C:\Users, C:\Windows\Temp, C:\Temp, "$env:ProgramData" -Recurse -File -Force -ErrorAction SilentlyContinue |
     Where-Object { $_.LastWriteTime -gt (Get-Date).AddDays($recentDays) } |
     Select-Object FullName, LastWriteTime, Length, CreationTime
 $recentFiles | Export-Csv "$CaseDir\06_files\recent_files_7d.csv" -NoTypeInformation
 
-# 用户 Recent (最近打开的文件)
+# User Recent
 $users = Get-ChildItem C:\Users -Directory -Force -ErrorAction SilentlyContinue
 foreach ($u in $users) {
     $recent = "$($u.FullName)\AppData\Roaming\Microsoft\Windows\Recent"
@@ -199,7 +197,7 @@ foreach ($u in $users) {
     }
 }
 
-# 临时目录 (CS 落地常见位置)
+# Temp directories (CS landing common location)
 $tempDirs = @($env:TEMP, $env:TMP, "C:\Windows\Temp", "C:\Temp", "$env:ProgramData")
 foreach ($td in $tempDirs) {
     if (Test-Path $td) {
@@ -210,10 +208,10 @@ foreach ($td in $tempDirs) {
     }
 }
 
-# ============== 7. 用户行为 ==============
-Write-Host "[+] 7/8 用户行为..." -ForegroundColor Green
+# ============== 7. User activity ==============
+Write-Host "[+] 7/8 User activity..." -ForegroundColor Green
 
-# PowerShell 历史
+# PowerShell history
 $psHistFiles = @(
     "$env:APPDATA\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt",
     "$env:LOCALAPPDATA\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt"
@@ -224,16 +222,15 @@ foreach ($ph in $psHistFiles) {
     }
 }
 
-# SSH known_hosts / bash history (如果装了 git bash / WSL)
+# SSH known_hosts
 $users | ForEach-Object {
     $ssh = "$($_.FullName)\.ssh\known_hosts"
     if (Test-Path $ssh) { Copy-Item $ssh "$CaseDir\06_files\ssh_$($_.Name)_known_hosts" -Force }
 }
 
-# ============== 8. 浏览器痕迹 (CS 水坑常见) ==============
-Write-Host "[+] 8/8 浏览器/Office..." -ForegroundColor Green
+# ============== 8. Browser / Office ==============
+Write-Host "[+] 8/8 Browser / Office history..." -ForegroundColor Green
 
-# Chrome/Edge 下载记录
 $users | ForEach-Object {
     $chrome = "$($_.FullName)\AppData\Local\Google\Chrome\User Data\Default\History"
     $edge = "$($_.FullName)\AppData\Local\Microsoft\Edge\User Data\Default\History"
@@ -241,14 +238,13 @@ $users | ForEach-Object {
     if (Test-Path $edge) { Copy-Item $edge "$CaseDir\06_files\edge_history_$($_.Name).db" -Force }
 }
 
-# ============== 完成 ==============
-Write-Host "`n[+] 完成!" -ForegroundColor Green
-Write-Host "[*] 案件目录: $CaseDir"
-Write-Host "[*] 接下来:" -ForegroundColor Yellow
-Write-Host "    1. 运行 winpmem dump 内存到 $CaseDir\"
-Write-Host "    2. 计算 hash:  Get-FileHash -Algorithm SHA256 *.raw"
-Write-Host "    3. 压缩传输到分析机"
-Write-Host "    4. 不要修改原文件`n"
+# ============== Done ==============
+Write-Host ""
+Write-Host "[+] Done." -ForegroundColor Green
+Write-Host "[*] Case directory: $CaseDir"
+Write-Host "[*] Next: run winpmem to dump memory, then compute SHA256:" -ForegroundColor Yellow
+Write-Host "    Get-FileHash -Algorithm SHA256 mem.raw"
+Write-Host "[*] Then compress the entire $CaseDir and transfer to analysis workstation." -ForegroundColor Yellow
+Write-Host ""
 
-# 打开目录
 explorer $CaseDir
