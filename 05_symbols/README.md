@@ -2,6 +2,12 @@
 
 内存分析符号表。
 
-**为什么不放仓里:** 每个 Windows 版本对应 200-500MB 的 symbols,体积过大,且需要按受害机精确版本下载。
+**zip 自带 `download_symbols.ps1`,现场首次分析时跑一次即可**(30 秒到 1 分钟):
 
-**怎么填充:** 现场根据受害机 Windows 版本,从 Volatility 官方仓库下载对应 PDB。详见 `02_collection/collect_artifacts.ps1` 头部注释。
+```powershell
+cd 05_symbols
+powershell -ExecutionPolicy Bypass -File download_symbols.ps1
+```
+
+脚本会自动检测受害机 Windows 版本,下载对应 symbols 到当前目录。
+网络隔离时,去 https://downloads.volatilityfoundation.org/volatility3/symbols/ 手动下 `windows-*.zip`,放到本目录即可。
