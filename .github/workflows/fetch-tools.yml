@@ -178,32 +178,40 @@ jobs:
           PTH_FILE=$(ls 03_analysis/python/python*._pth 2>/dev/null | head -1)
           if [ -n "$PTH_FILE" ]; then
               echo "PTH file: $PTH_FILE"
+              echo "--- Before ---"
               cat "$PTH_FILE"
-              # 取消 import site 注释(注意:Python 3.12 的 _pth 是 '#import site' 有空格,不是 '#importsite')
-              sed -i 's/^#[[:space:]]*import[[:space:]]\+site$/import site/' "$PTH_FILE"
-              # 在文件末尾加 Lib\site-packages 路径(如果还没有)
-              if ! grep -q "Lib.site-packages" "$PTH_FILE"; then
-                  echo "" >> "$PTH_FILE"
-                  echo "Lib\site-packages" >> "$PTH_FILE"
-              fi
-              echo "✓ After fix:"
+              echo "---"
+              # 直接重写整个 _pth 文件(比 sed 更稳)
+              # 标准 embeddable _pth 应该包含:python312.zip / . / import site / Lib\site-packages
+              cat > "$PTH_FILE" <<'PTH_EOF'
+python312.zip
+.
+import site
+
+import sys
+PTH_EOF
+              # 再用 grep 看现在的内容确认(用 cat 看完整)
+              echo "--- After rewrite ---"
               cat "$PTH_FILE"
+              echo "---"
           else
               echo "ERROR: no _pth file found"
               ls 03_analysis/python/*.pth 2>&1 || true
+              exit 1
           fi
           # 下 pip(embeddable 不带 pip)
           curl -fsSL https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py
-          03_analysis/python/python.exe /tmp/get-pip.py --no-warn-script-location 2>&1 | tail -3
+          # 在 ubuntu runner 上 python.exe 不可执行,加 +x
+          chmod +x 03_analysis/python/python.exe
+          # 装 pip(如果失败不影响 workflow,因为 Windows 端 install_volatility.bat 会再装)
+          03_analysis/python/python.exe /tmp/get-pip.py --no-warn-script-location 2>&1 | tail -3 || echo "  (workflow 端装 pip 失败,Windows 端 install_volatility.bat 会再装)"
           rm -f /tmp/get-pip.py
-          # 用 embeddable python 装 vol3
-          echo "Installing Volatility 3 into Python embeddable..."
+          # 用 embeddable python 装 vol3(workflow 端尽力,失败也无所谓)
+          echo "Installing Volatility 3 into Python embeddable (best effort)..."
           WHL=$(ls 03_analysis/volatility3/volatility3-*.whl | head -1)
           if [ -n "$WHL" ]; then
-              03_analysis/python/python.exe -m pip install --no-warn-script-location "$WHL" 2>&1 | tail -3
-              echo "✓ Volatility 3 installed"
-              # 验证
-              03_analysis/python/python.exe -m volatility3 --help 2>&1 | head -3
+              03_analysis/python/python.exe -m pip install --no-warn-script-location "$WHL" 2>&1 | tail -3 || echo "  (workflow 端装 vol3 失败,Windows 端 install_volatility.bat 会再装)"
+              echo "✓ Volatility 3 install attempted"
           fi
           ls -la 03_analysis/python/ | head -20
 
