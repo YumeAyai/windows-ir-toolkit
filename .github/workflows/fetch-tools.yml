@@ -181,12 +181,12 @@ jobs:
               echo "--- Before ---"
               cat "$PTH_FILE"
               echo "---"
-              # 直接重写整个 _pth 文件(用 echo 避免 YAML heredoc 缩进问题)
+              # 直接重写整个 _pth 文件
+              # 注意:_pth 文件只允许 'import site' 一句,加别的 import 会报
+              #       "unsupported import in ._pth file" 然后 Python 直接退出
               echo "python312.zip" > "$PTH_FILE"
               echo "." >> "$PTH_FILE"
               echo "import site" >> "$PTH_FILE"
-              echo "" >> "$PTH_FILE"
-              echo "import sys" >> "$PTH_FILE"
               echo "--- After rewrite ---"
               cat "$PTH_FILE"
               echo "---"
