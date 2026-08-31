@@ -1,7 +1,7 @@
-ï»¿@echo off
+@echo off
 REM ============================================================
-REM Volatility 3 ä¸€é”®å®‰è£… (Windows, ç”¨ Python embeddable)
-REM åˆ†ææœºä¸éœ€è¦é¢„è£… Python
+REM Volatility 3 Ò»¼ü°²×° (Windows, ÓÃ Python embeddable)
+REM ·ÖÎö»ú²»ĞèÒªÔ¤×° Python
 REM ============================================================
 
 setlocal enabledelayedexpansion
@@ -13,55 +13,55 @@ set "WHL=%SCRIPT_DIR%volatility3\volatility3-*.whl"
 
 echo.
 echo ============================================================
-echo   Volatility 3 ä¸€é”®å®‰è£… (Windows)
+echo   Volatility 3 Ò»¼ü°²×° (Windows)
 echo ============================================================
 echo.
 
-REM æ£€æŸ¥ Python embeddable
+REM ¼ì²é Python embeddable
 if not exist "%PYTHON_EXE%" (
-    echo [ERROR] æ‰¾ä¸åˆ° Python embeddable:%PYTHON_EXE%
-    echo         è¯·ä» GitHub Releases é‡æ–°ä¸‹è½½å®Œæ•´ ir-toolkit.zip
+    echo [ERROR] ÕÒ²»µ½ Python embeddable:%PYTHON_EXE%
+    echo         Çë´Ó GitHub Releases ÖØĞÂÏÂÔØÍêÕû ir-toolkit.zip
     exit /b 1
 )
 echo [OK] Python embeddable:%PYTHON_EXE%
 "%PYTHON_EXE%" --version
 
-REM æ£€æŸ¥ wheel
+REM ¼ì²é wheel
 for %%F in ("%WHL%") do set "WHL_FILE=%%~fF"
 if not exist "%WHL_FILE%" (
-    echo [ERROR] æ‰¾ä¸åˆ° vol3 wheel:%WHL%
+    echo [ERROR] ÕÒ²»µ½ vol3 wheel:%WHL%
     exit /b 1
 )
 echo [OK] Wheel:%WHL_FILE%
 
-REM è£…åˆ° embeddable
+REM ×°µ½ embeddable
 echo.
-echo [+] è£… vol3 åˆ° embeddable Python...
+echo [+] ×° vol3 µ½ embeddable Python...
 "%PYTHON_EXE%" -m pip install --no-warn-script-location "%WHL_FILE%"
 if errorlevel 1 (
-    echo [ERROR] pip install å¤±è´¥
+    echo [ERROR] pip install Ê§°Ü
     exit /b 1
 )
 
-REM éªŒè¯
+REM ÑéÖ¤
 echo.
-echo [+] éªŒè¯...
+echo [+] ÑéÖ¤...
 "%PYTHON_EXE%" -m volatility3 --help >nul 2>&1
 if errorlevel 1 (
-    echo [WARN] vol3 è£…å¥½ä½† --help æŠ¥é”™,å¯èƒ½ä¾èµ–æœªè£…å…¨
+    echo [WARN] vol3 ×°ºÃµ« --help ±¨´í,¿ÉÄÜÒÀÀµÎ´×°È«
 ) else (
-    echo [OK] vol3 å·²å¯ç”¨
+    echo [OK] vol3 ÒÑ¿ÉÓÃ
 )
 
 echo.
 echo ============================================================
-echo   ä¸‹ä¸€æ­¥:
-echo     è·‘ vol3 ç”¨ run_volatility.bat,ä¾‹å¦‚:
+echo   ÏÂÒ»²½:
+echo     ÅÜ vol3 ÓÃ run_volatility.bat,ÀıÈç:
 echo       run_volatility.bat -f mem.raw windows.info
 echo       run_volatility.bat -f mem.raw windows.pstree
 echo       run_volatility.bat -f mem.raw windows.netscan
 echo.
 echo   symbols:
-echo       .\install_symbols.bat   (ä»æœ¬ç›®å½•æˆ– 05_symbols è·‘)
+echo       .\install_symbols.bat   (´Ó±¾Ä¿Â¼»ò 05_symbols ÅÜ)
 echo ============================================================
 pause

@@ -177,10 +177,20 @@ jobs:
           # embeddable 默认禁 pip,改 _pth 文件启用 site
           PTH_FILE=$(ls 03_analysis/python/python*._pth 2>/dev/null | head -1)
           if [ -n "$PTH_FILE" ]; then
-              # 取消 import site 注释 + 加 Lib/site-packages
-              sed -i 's/^#importsite/importsite/' "$PTH_FILE"
-              echo "Lib\site-packages" >> "$PTH_FILE"
-              echo "✓ Enabled pip in Python embeddable"
+              echo "PTH file: $PTH_FILE"
+              cat "$PTH_FILE"
+              # 取消 import site 注释(注意:Python 3.12 的 _pth 是 '#import site' 有空格,不是 '#importsite')
+              sed -i 's/^#[[:space:]]*import[[:space:]]\+site$/import site/' "$PTH_FILE"
+              # 在文件末尾加 Lib\site-packages 路径(如果还没有)
+              if ! grep -q "Lib.site-packages" "$PTH_FILE"; then
+                  echo "" >> "$PTH_FILE"
+                  echo "Lib\site-packages" >> "$PTH_FILE"
+              fi
+              echo "✓ After fix:"
+              cat "$PTH_FILE"
+          else
+              echo "ERROR: no _pth file found"
+              ls 03_analysis/python/*.pth 2>&1 || true
           fi
           # 下 pip(embeddable 不带 pip)
           curl -fsSL https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py

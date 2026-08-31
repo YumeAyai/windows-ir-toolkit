@@ -1,7 +1,7 @@
-ï»¿@echo off
+@echo off
 REM ============================================================
-REM Volatility 3 ä¸€é”®è¿è¡Œ (Windows)
-REM ç”¨æ³•: run_volatility.bat -f mem.raw windows.pstree
+REM Volatility 3 Ò»¼üÔËĞĞ (Windows)
+REM ÓÃ·¨: run_volatility.bat -f mem.raw windows.pstree
 REM      run_volatility.bat -f mem.raw windows.netscan
 REM ============================================================
 
@@ -11,13 +11,13 @@ set "SCRIPT_DIR=%~dp0"
 set "PYTHON_EXE=%SCRIPT_DIR%python\python.exe"
 
 if not exist "%PYTHON_EXE%" (
-    echo [ERROR] Python embeddable æœªæ‰¾åˆ°,è¯·å…ˆè·‘ install_volatility.bat
+    echo [ERROR] Python embeddable Î´ÕÒµ½,ÇëÏÈÅÜ install_volatility.bat
     exit /b 1
 )
 
-REM æŠŠ vol3 è£…åˆ°é»˜è®¤ symbols è·¯å¾„(ä¾¿äº vol è‡ªåŠ¨æ‰¾)
-REM é»˜è®¤ %USERPROFILE%\AppData\Roaming\volatility3\symbols
-REM ä¹ŸåŠ æœ¬ç›®å½• symbols
+REM °Ñ vol3 ×°µ½Ä¬ÈÏ symbols Â·¾¶(±ãÓÚ vol ×Ô¶¯ÕÒ)
+REM Ä¬ÈÏ %USERPROFILE%\AppData\Roaming\volatility3\symbols
+REM Ò²¼Ó±¾Ä¿Â¼ symbols
 set "VOLATILITY3_SYMBOLS_DIR=%SCRIPT_DIR%volatility3\symbols"
 
 "%PYTHON_EXE%" -m volatility3 %*
