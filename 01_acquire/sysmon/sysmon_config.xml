@@ -1,0 +1,84 @@
+<Sysmon schemaversion="4.90">
+  <!--
+    应急响应版 Sysmon 配置
+    关键事件: 1(进程创建), 3(网络), 11(文件创建), 12/13/14(注册表), 22(DNS)
+    白名单: IT/开发常用工具,避免噪音
+  -->
+
+  <HashAlgorithms>SHA256</HashAlgorithms>
+
+  <EventFiltering>
+
+    <!-- Event 1: ProcessCreate(命令行 + 哈希)-->
+    <ProcessCreate onmatch="include">
+      <!-- CS / 木马常见:PowerShell -enc/-nop,wmic,mshta,rundll32,regsvr32,InstallUtil -->
+      <Rule groupRelation="or" name="T1059_Suspicious_CLI">
+        <CommandLine condition="contains any">-enc; -EncodedCommand; -nop; -windowstyle hidden; -w hidden;
+          bypass; -ExecutionPolicy; DownloadString; DownloadFile;
+          wmic process call create; mshta http; mshta javascript;
+          rundll32.exe javascript:; regsvr32 /s /n /u /i:http;
+          InstallUtil /logfile=; InstallUtil.exe /U;
+          certutil -urlcache; bitsadmin /transfer;
+          regsvr32.exe /s /n /u /i:http
+        </CommandLine>
+      </Rule>
+    </ProcessCreate>
+
+    <!-- Event 3: NetworkConnect(全记,反连 C2 关键证据)-->
+    <NetworkConnect onmatch="exclude">
+      <!-- 排除自家工具和系统常见外联,减噪 -->
+      <Rule groupRelation="or" name="Exclude_known_good">
+        <Image condition="is">C:\Windows\System32\svchost.exe</Image>
+        <Image condition="is">C:\Windows\System32\smss.exe</Image>
+        <Image condition="is">C:\Windows\System32\lsass.exe</Image>
+        <DestinationPort condition="is">137</DestinationPort>
+        <DestinationPort condition="is">138</DestinationPort>
+        <DestinationPort condition="is">139</DestinationPort>
+        <DestinationHostname condition="contains">windowsupdate</DestinationHostname>
+        <DestinationHostname condition="contains">microsoft.com</DestinationHostname>
+        <DestinationHostname condition="contains">msftncsi</DestinationHostname>
+        <DestinationHostname condition="contains">.windows.com</DestinationHostname>
+      </Rule>
+    </NetworkConnect>
+
+    <!-- Event 11: FileCreate(应急关注:用户目录 + Temp)-->
+    <FileCreate onmatch="include">
+      <TargetFilename condition="contains">\Users\</TargetFilename>
+      <TargetFilename condition="contains">\Temp\</TargetFilename>
+      <TargetFilename condition="contains">\AppData\Local\Temp\</TargetFilename>
+      <TargetFilename condition="contains">\ProgramData\</TargetFilename>
+      <TargetFilename condition="ends with">.exe</TargetFilename>
+      <TargetFilename condition="ends with">.dll</TargetFilename>
+      <TargetFilename condition="ends with">.ps1</TargetFilename>
+      <TargetFilename condition="ends with">.bat</TargetFilename>
+      <TargetFilename condition="ends with">.vbs</TargetFilename>
+      <TargetFilename condition="ends with">.hta</TargetFilename>
+      <TargetFilename condition="ends with">.jar</TargetFilename>
+      <TargetFilename condition="ends with">.js</TargetFilename>
+      <TargetFilename condition="ends with">.lnk</TargetFilename>
+    </FileCreate>
+
+    <!-- Event 12/13/14: RegistryEvent(只关注 Run/RunOnce/Services)-->
+    <RegistryEvent onmatch="include">
+      <TargetObject condition="contains">\CurrentVersion\Run</TargetObject>
+      <TargetObject condition="contains">\CurrentVersion\RunOnce</TargetObject>
+      <TargetObject condition="contains">\CurrentVersion\RunOnceEx</TargetObject>
+      <TargetObject condition="contains">\CurrentControlSet\Services</TargetObject>
+      <TargetObject condition="contains">\ShellIconOverlayIdentifiers</TargetObject>
+      <TargetObject condition="contains">\Image File Execution Options</TargetObject>
+      <TargetObject condition="contains">\Winlogon</TargetObject>
+      <TargetObject condition="contains">\Windows NT\CurrentVersion\Winlogon</TargetObject>
+      <TargetObject condition="contains">\Lsa</TargetObject>
+    </RegistryEvent>
+
+    <!-- Event 22: DnsQuery(全记)-->
+    <DnsQuery onmatch="exclude">
+      <Rule name="Exclude_local">
+        <QueryName condition="ends with">.local</QueryName>
+        <QueryName condition="ends with">.lan</QueryName>
+        <QueryName condition="ends with">.msftncsi.com</QueryName>
+      </Rule>
+    </DnsQuery>
+
+  </EventFiltering>
+</Sysmon>
