@@ -150,7 +150,7 @@ jobs:
           # vol3 是 Python 包,用 pip download 下成 .whl 塞进 zip
           mkdir -p 03_analysis/volatility3
           echo "Downloading Volatility 3 wheel via pip..."
-          pip3 download --no-deps --dest 03_analysis/volatility3 volatility3 2>&1 | tail -5
+          pip3 download --dest 03_analysis/volatility3 volatility3 2>&1 | tail -10
           # 也下 symbols pack(常用 windows PDB)
           echo "Downloading Volatility 3 symbols pack (optional)..."
           mkdir -p 03_analysis/volatility3/symbols
@@ -161,6 +161,41 @@ jobs:
               rm -f /tmp/symbols.zip
           fi
           ls -la 03_analysis/volatility3/
+
+      - name: Download Python embeddable (Windows)
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          # Python embeddable 是免安装的 Python,跟 vol3 wheel 配合
+          # 让分析机不必预装 Python 也能跑 vol
+          mkdir -p 03_analysis/python
+          PY_VERSION="3.12.7"
+          PY_URL="https://www.python.org/ftp/python/${PY_VERSION}/python-${PY_VERSION}-embed-amd64.zip"
+          echo "Downloading Python ${PY_VERSION} embeddable..."
+          curl -fsSL --retry 3 --retry-delay 5 -o /tmp/python-embed.zip "${PY_URL}"
+          unzip -q -o /tmp/python-embed.zip -d 03_analysis/python
+          rm -f /tmp/python-embed.zip
+          # embeddable 默认禁 pip,改 _pth 文件启用 site
+          PTH_FILE=$(ls 03_analysis/python/python*._pth 2>/dev/null | head -1)
+          if [ -n "$PTH_FILE" ]; then
+              # 取消 import site 注释 + 加 Lib/site-packages
+              sed -i 's/^#importsite/importsite/' "$PTH_FILE"
+              echo "Lib\site-packages" >> "$PTH_FILE"
+              echo "✓ Enabled pip in Python embeddable"
+          fi
+          # 下 pip(embeddable 不带 pip)
+          curl -fsSL https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py
+          03_analysis/python/python.exe /tmp/get-pip.py --no-warn-script-location 2>&1 | tail -3
+          rm -f /tmp/get-pip.py
+          # 用 embeddable python 装 vol3
+          echo "Installing Volatility 3 into Python embeddable..."
+          WHL=$(ls 03_analysis/volatility3/volatility3-*.whl | head -1)
+          if [ -n "$WHL" ]; then
+              03_analysis/python/python.exe -m pip install --no-warn-script-location "$WHL" 2>&1 | tail -3
+              echo "✓ Volatility 3 installed"
+              # 验证
+              03_analysis/python/python.exe -m volatility3 --help 2>&1 | head -3
+          fi
+          ls -la 03_analysis/python/ | head -20
 
       - name: Generate checksums
         if: steps.check.outputs.changed == 'true'

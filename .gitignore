@@ -26,6 +26,7 @@ desktop.ini
 01_acquire/*.exe
 01_acquire/sysmon/*.exe
 03_analysis/**/*.exe
+03_analysis/python/
 03_analysis/volatility3/*.whl
 03_analysis/volatility3/symbols/
 05_symbols/**/*.zip
