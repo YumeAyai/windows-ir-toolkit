@@ -131,6 +131,19 @@ jobs:
           find . -name "capa.exe" -type f | head -1
           ls -la
 
+      - name: Download Sysmon
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          # Sysmon 不是 GitHub release,直接 curl
+          mkdir -p 01_acquire/sysmon
+          echo "Downloading Sysmon from Microsoft..."
+          curl -fsSL --retry 3 --retry-delay 5 -o /tmp/Sysmon.zip "https://download.sysinternals.com/files/Sysmon.zip"
+          cd 01_acquire/sysmon
+          unzip -o /tmp/Sysmon.zip
+          rm -f /tmp/Sysmon.zip
+          # 保留 Sysmon64.exe (主程序) 和 Eula.txt
+          ls -la
+
       - name: Generate checksums
         if: steps.check.outputs.changed == 'true'
         run: |
