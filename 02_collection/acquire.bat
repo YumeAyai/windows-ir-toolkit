@@ -47,11 +47,32 @@ if errorlevel 1 (
     echo [!] collect_artifacts.ps1 失败,继续执行内存 dump
 )
 
-REM 3. Dump 内存
+REM 3. Dump 内存(带详细错误捕获,方便排查 winpmem 失败原因)
 set "WINPMEM=%TOOLKIT_ROOT%\01_acquire\winpmem_mini_x64_rc2.exe"
-echo [+] Dump 内存(等几分钟到几十分钟)...
+echo [+] Dump 内存(等几分钟到几十分钟,会有详细输出)...
 if exist "%WINPMEM%" (
-    "%WINPMEM%" "!CASEDIR!\mem.raw"
+    echo     调用: "%WINPMEM%" "!CASEDIR!\mem.raw"
+    REM winpmem 加载驱动需要时间,输出很多,重定向到日志
+    "%WINPMEM%" "!CASEDIR!\mem.raw" 1>"!CASEDIR!\winpmem.log" 2>&1
+    set "WP_RC=%errorlevel%"
+    echo     winpmem 退出码: !WP_RC!
+    if not exist "!CASEDIR!\mem.raw" (
+        echo     [ERROR] mem.raw 未生成!
+        if exist "!CASEDIR!\winpmem.log" (
+            echo     --- winpmem 输出日志 ---
+            type "!CASEDIR!\winpmem.log"
+            echo     ------------------------
+            echo.
+            echo     常见失败原因:
+            echo       1. 驱动签名问题:Secure Boot 开启时 winpmem_mini 1.6 驱动加载失败
+            echo          解决:用 go-winpmem_amd64_1.0-rc2_signed.exe 替换
+            echo       2. 输出路径问题:路径含特殊字符或太长(超过 260 字符)
+            echo          解决:案件目录改名更短
+            echo       3. 磁盘空间不足:mem.raw 通常等于物理内存大小
+        )
+    ) else (
+        echo     [OK] mem.raw 已生成
+    )
 ) else (
     echo [!] 找不到 winpmem: %WINPMEM%
     echo     请从 GitHub Releases 下载完整 ir-toolkit.zip,或跑 install_tools.ps1
