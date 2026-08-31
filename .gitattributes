@@ -1,0 +1,3 @@
+# Windows batch files are distributed as GBK/CP936 with CRLF. Do not let Git
+# normalize their line endings when the toolkit is copied to a Windows host.
+*.bat -text

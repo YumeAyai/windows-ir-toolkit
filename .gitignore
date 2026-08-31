@@ -23,13 +23,13 @@ desktop.ini
 *.lnk
 
 # U 盘里手动放的二进制(README 里告诉用户去哪下,不进仓)
-01_acquire/*.exe
-01_acquire/sysmon/*.exe
-03_analysis/**/*.exe
-03_analysis/python/
-03_analysis/volatility3/*.whl
-03_analysis/volatility3/symbols/
-05_symbols/**/*.zip
+01_collection/tools/**/*.exe
+01_collection/sysmon/*.exe
+02_analysis/tools/**/*.exe
+02_analysis/python/
+02_analysis/volatility3/*.whl
+02_analysis/volatility3/symbols/
+02_analysis/symbols/**/*.zip
 
 # Python
 __pycache__/

@@ -1,4 +1,4 @@
-# 01_acquire/sysmon
+# 01_collection/sysmon
 
 Sysmon 应急部署包。
 
@@ -12,7 +12,7 @@ Sysmon 应急部署包。
 
 ## 应急前 vs 应急后
 
-- **应急前装**: 监控到 CS / 木马 / 后门活动,事件 ID 写入 evtx,collect_artifacts.ps1 自动导出
+- **应急前装**: 监控到 CS / 木马 / 后门活动,事件 ID 写入 evtx,collect.ps1 自动导出
 - **应急后装**: 只能监控后续活动,装前发生的攻击看不到
 
 ## 配置要点

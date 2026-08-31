@@ -20,7 +20,7 @@ echo -e "${CYAN}[*] 仓库: $REPO${NC}"
 echo ""
 
 # 创建目录
-mkdir -p "$OUTPUT_DIR/01_acquire" "$OUTPUT_DIR/03_analysis"
+mkdir -p "$OUTPUT_DIR/01_collection/tools" "$OUTPUT_DIR/02_analysis/tools"
 
 # ============== 找最新 tools-* release ==============
 echo -e "${GREEN}[+] 查询 GitHub 最新 tools release...${NC}"
@@ -62,7 +62,7 @@ while IFS=$'\t' read -r NAME URL SIZE; do
     echo -e "  ${CYAN}[↓]${NC} $NAME ($SIZE_MB MB)..."
 
     if [[ "$NAME" == winpmem* ]]; then
-        TARGET="$OUTPUT_DIR/01_acquire/$NAME"
+        TARGET="$OUTPUT_DIR/01_collection/tools/$NAME"
     else
         TARGET="$TEMP_DIR/$NAME"
     fi
@@ -84,13 +84,13 @@ if [ -n "$CAPA_ZIP" ]; then
     mkdir -p "$TEMP_DIR/capa_extracted"
     unzip -q "$CAPA_ZIP" -d "$TEMP_DIR/capa_extracted"
 
-    # 找到 capa.exe,放到 03_analysis/capa/
+    # 找到 capa.exe,放到 02_analysis/tools/capa/
     CAPA_EXE=$(find "$TEMP_DIR/capa_extracted" -name "capa.exe" | head -1)
     if [ -n "$CAPA_EXE" ]; then
-        mkdir -p "$OUTPUT_DIR/03_analysis/capa"
-        cp -r "$(dirname "$CAPA_EXE")"/* "$OUTPUT_DIR/03_analysis/capa/"
-        chmod +x "$OUTPUT_DIR/03_analysis/capa/capa.exe"
-        echo -e "    ${GREEN}✓ capa 已放到 03_analysis/capa/${NC}"
+        mkdir -p "$OUTPUT_DIR/02_analysis/tools/capa"
+        cp -r "$(dirname "$CAPA_EXE")"/* "$OUTPUT_DIR/02_analysis/tools/capa/"
+        chmod +x "$OUTPUT_DIR/02_analysis/tools/capa/capa.exe"
+        echo -e "    ${GREEN}✓ capa 已放到 02_analysis/tools/capa/${NC}"
     fi
 fi
 
@@ -108,5 +108,5 @@ echo "    - FTK Imager         https://www.exterro.com/ftk-imager"
 echo "    - Magnet RAM Capture https://www.magnetforensics.com/"
 echo "    - DumpIt             https://www.comae.com/"
 echo ""
-echo -e "${CYAN}[*] Windows 取证: 把整个目录拷到 U 盘,双击 02_collection\\acquire.bat${NC}"
-echo -e "${CYAN}[*] 内存分析:  vol -f mem.raw windows.pstree  (需要 vol3)${NC}"
+echo -e "${CYAN}[*] Windows 取证: 把整个目录拷到 U 盘,管理员运行 01_collection\\run_collect.bat${NC}"
+echo -e "${CYAN}[*] 分析:  powershell -File 02_analysis\\run_analysis.ps1 -EvidenceDir <case>${NC}"

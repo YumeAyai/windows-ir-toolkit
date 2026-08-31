@@ -1,80 +1,80 @@
 # Windows IR Toolkit
 
-Windows 应急响应取证包 — 现场收集 + 内存分析 + 证据链追踪。
+Windows 应急响应包，只有三个阶段：
 
-> ⚠️ **目录编号 ≠ 使用顺序**。`01-05` 只是历史命名编号,不代表先后。
+```text
+01_collection 现场采集 → 02_analysis 分析研判 → 03_report 证据整理与报告
+```
 
-## ⚡ 应急三步(慌乱时只看这条)
+## 先记住这条
 
-1. **断网**——拔网线 / 关 WiFi / 断 VPN,**不要关机**
-2. **插 U 盘**,管理员双击 `02_collection/acquire.bat`,等它跑完
-3. **拔出 U 盘**,把受害机 `C:\evidence\` 整个目录传回分析机
+在确认主机正在运行且需要保留内存证据时：记录时间与操作者 → 隔离网络（不要关机）→ 把工具包接入受害机 → 管理员运行 `01_collection\run_collect.bat` → 等待完成 → 只读复制整个案件目录到分析机。
 
-## 怎么准备(出事之前)
+不要在受害机上安装分析工具、打开样本、清理文件或反复重启。若机器已经关机，不要为了“采集内存”再次开机，改为走磁盘镜像流程。
 
-1. Clone 本仓库 或从 Releases 下载 `ir-toolkit.zip`
-2. 整个目录拷到 U 盘
-3. U 盘贴标签"应急取证专用",日常不插电脑
-4. 在同事/上游/IT 经理那里报备这份资料的位置
+## 三阶段的边界
 
-## 完整流程(按使用顺序)
+| 阶段 | 运行位置 | 输入 | 输出 |
+|---|---|---|---|
+| `01_collection` | 受害 Windows 主机 | 工具包、现场授权 | 一个完整的 `IR-时间戳` 案件目录 |
+| `02_analysis` | 隔离分析机 | `01_collection` 案件目录的只读副本 | `<案件名>-analysis`、分析日志、初步发现 |
+| `03_report` | 分析机 | collection 案件目录 + analysis 输出 | `<案件名>-report`、时间线、IOC、证据链 |
 
-| 顺序 | 阶段 | 目录 | 在哪台机 | 干什么 |
-|------|------|------|---------|--------|
-| 0 | (可选预装) | `01_acquire/sysmon/install_sysmon.bat` | 受害机 | 装 sysmon 监控(应急前装,事件 ID 写入 evtx) |
-| 1 | **现场取证** | `02_collection/acquire.bat` | 受害机 | 双击入口:自动提权 + 跑收集脚本 + 调 winpmem + 算 hash |
-| 2 | (传输) | 现场产物 | — | `C:\evidence\IR-时间戳\` 7z 加密拷到分析机 |
-| 3 | **分析准备** | `05_symbols/download_symbols.ps1` | 分析机 | 下载受害机 Windows 版本对应的 Volatility symbols |
-| 4 | **内存分析** | `03_analysis/` | 分析机 | vol + CobaltStrikeParser + capa |
-| 5 | **证据登记** | `04_evidence/chain_of_custody.csv` | 分析机 | 填案件 / SHA256 / 分析师签名 |
-| 6 | (报告) | — | 分析机 | 整合时间线 + IOC + 处置建议 |
+## 使用顺序
 
-## 目录用途速查
+### 01_collection：现场采集
 
-| 目录 | 阶段 | 工具/内容 | 性质 |
-|------|------|----------|------|
-| `01_acquire/` | 0 现场(可选) | winpmem + sysmon 一键部署 | 工具(被 02 调用) |
-| `02_collection/` | 1 现场 | 入口 bat + 254 行 ps1 | **现场入口** |
-| `03_analysis/` | 4 分析 | capa(workflow 自动装) | 分析工具 |
-| `04_evidence/` | 5 收尾 | chain_of_custody.csv 模板 | 证据链(只有 1 个 csv) |
-| `05_symbols/` | 3 分析 | download_symbols.ps1 | Volatility symbols 下载 |
+管理员运行：
 
-## 阶段 1:现场取证(受害机)
+```bat
+01_collection\run_collect.bat
+```
 
-按顺序:
+脚本会按固定顺序完成：创建案件目录 → 优先采集内存 → 采集系统、进程、网络、持久化、日志和常见用户痕迹 → 写入元数据和日志 → 对全部产物生成 `sha256_manifest.csv`。
 
-| 步骤 | 动作 | 关键点 |
-|------|------|--------|
-| 1 | **断网** | 拔网线 / 关 WiFi / 断 VPN。**不关机**——内存里有攻击者痕迹 |
-| 2 | **插 U 盘** | 用准备好的 IR_Toolkit U 盘 |
-| 3 | **管理员双击** | `02_collection/acquire.bat` → 右键 → 以管理员身份运行 |
-| 4 | **等待 5-30 分钟** | 脚本自动 dump 内存 + 收集 8 大块 artifacts + 算 SHA256 |
-| 5 | **拔 U 盘** | 取证完成,机器可以关机 |
-| 6 | **传回分析机** | `C:\evidence\IR-时间戳\` 整目录(含 mem.raw + hash)安全传回 |
+默认输出到 `C:\IR_Evidence\IR-时间戳\`。如需指定路径，可直接运行：
 
-## 阶段 2:事后分析(分析机)
+```powershell
+powershell -ExecutionPolicy Bypass -File .\01_collection\collect.ps1 -CaseDir D:\IR\IR-001
+```
 
-按 **05 → 03 → 04** 顺序(注意 05 在 03 前):
+### 02_analysis：分析
 
-| 步骤 | 动作 | 用到的目录 |
-|------|------|----------|
-| 1 | 解压现场产物,`cd IR-时间戳/` | — |
-| 2 | 跑 `05_symbols/download_symbols.ps1` 下 symbols | `05_symbols/` |
-| 3 | 跑 vol + CobaltStrikeParser + capa | `03_analysis/` |
-| 4 | 填 `04_evidence/chain_of_custody.csv` | `04_evidence/` |
-| 5 | 整合时间线 + IOC + 写事故报告 | — |
+在分析机上对 collection 产物执行：
 
-## 怎么决策(不同现场场景)
+```powershell
+powershell -ExecutionPolicy Bypass -File .\02_analysis\run_analysis.ps1 `
+  -EvidenceDir D:\Cases\IR-001
+```
 
-- **能 RDP / 物理接触** → 按阶段 1 操作步骤来
-- **只有 PowerShell Remoting / SSH 远程** → 在远端跑 `02_collection/collect_artifacts.ps1`,dump 内存用 `01_acquire/winpmem_mini_x64_rc2.exe` 远程执行
-- **完全失联 / 黑屏** → 联系机房断电保留磁盘,等恢复后从外部启动介质取证
-- **主机已关机** → 不要再开机(可能触发恶意软件检测环境变化而自毁或外发),优先做磁盘镜像
+脚本会先验证 collection 的 SHA256 清单，再尝试运行 Volatility 3 的 `info / pslist / pstree / netscan / cmdline / malfind`。默认输出到案件目录旁的 `<案件名>-analysis\`，不会把分析结果写回原始案件目录；单个插件失败不会掩盖其他结果，所有命令和失败原因都会写入分析日志。
 
-## 怎么下载
+### 03_report：整理与报告
 
-从 [Releases](../../releases) 下载 `ir-toolkit.zip`,解压即用。或 clone 后跑 `install_tools.ps1` / `.sh` 单独拉取工具。
+```powershell
+powershell -ExecutionPolicy Bypass -File .\03_report\build_report.ps1 `
+  -CaseDir D:\Cases\IR-001 `
+  -AnalysisDir D:\Cases\IR-001-analysis
+```
 
-## License
+默认输出到案件目录旁的 `<案件名>-report\`，包括 `report.md`、`timeline.csv`、`ioc.csv` 和 `chain_of_custody.csv`。脚本只生成结构和客观统计，不自动把“可疑”写成“已确认入侵”；结论必须由分析人员根据证据填写。
 
-MIT
+## 目录
+
+```text
+01_collection/             现场采集入口、采集脚本、WinPmem、Sysmon（.bat 为 GBK/CRLF）
+02_analysis/               内存分析入口、Volatility、symbols
+03_report/                 报告生成、时间线、IOC、证据链
+install_tools.ps1/.sh      预先准备工具（可选）
+tools-manifest.json        工具来源和版本说明
+```
+
+Sysmon 只能在事件前部署，属于 `01_collection\sysmon\` 下的可选准备工作；它不是现场采集的必需步骤。
+
+## 重要限制
+
+- 这是现场 triage 工具包，不替代经授权的完整磁盘镜像、网络侧取证或法律证据保全流程。
+- 证据目录应使用只读副本进行分析；原始目录和 SHA256 清单不得覆盖。
+- U 盘、传输介质和分析机都要记录操作者、时间、路径和 SHA256。
+
+MIT License

@@ -111,20 +111,20 @@ jobs:
       - name: Download WinPmem
         if: steps.check.outputs.changed == 'true'
         run: |
-          mkdir -p 01_acquire
+          mkdir -p 01_collection/tools
           echo "Downloading ${{ steps.winpmem.outputs.url }}..."
-          curl -fsSL --retry 3 --retry-delay 5 -o 01_acquire/winpmem_mini_x64_rc2.exe "${{ steps.winpmem.outputs.url }}"
-          ls -la 01_acquire/
-          file 01_acquire/winpmem_mini_x64_rc2.exe 2>/dev/null || true
+          curl -fsSL --retry 3 --retry-delay 5 -o 01_collection/tools/winpmem_mini_x64_rc2.exe "${{ steps.winpmem.outputs.url }}"
+          ls -la 01_collection/tools/
+          file 01_collection/tools/winpmem_mini_x64_rc2.exe 2>/dev/null || true
 
       - name: Download capa
         if: steps.check.outputs.changed == 'true'
         run: |
-          mkdir -p 03_analysis
+          mkdir -p 02_analysis/tools
           echo "Downloading ${{ steps.capa.outputs.url }}..."
           curl -fsSL --retry 3 --retry-delay 5 -o /tmp/capa.zip "${{ steps.capa.outputs.url }}"
           # 展开 zip,但只保留 windows-x64 的可执行文件
-          cd 03_analysis
+          cd 02_analysis/tools
           unzip -o /tmp/capa.zip
           rm -f /tmp/capa.zip
           # 找到主程序,简化命名
@@ -135,10 +135,10 @@ jobs:
         if: steps.check.outputs.changed == 'true'
         run: |
           # Sysmon 不是 GitHub release,直接 curl
-          mkdir -p 01_acquire/sysmon
+          mkdir -p 01_collection/sysmon
           echo "Downloading Sysmon from Microsoft..."
           curl -fsSL --retry 3 --retry-delay 5 -o /tmp/Sysmon.zip "https://download.sysinternals.com/files/Sysmon.zip"
-          cd 01_acquire/sysmon
+          cd 01_collection/sysmon
           unzip -o /tmp/Sysmon.zip
           rm -f /tmp/Sysmon.zip
           # 保留 Sysmon64.exe (主程序) 和 Eula.txt
@@ -148,34 +148,34 @@ jobs:
         if: steps.check.outputs.changed == 'true'
         run: |
           # vol3 是 Python 包,用 pip download 下成 .whl 塞进 zip
-          mkdir -p 03_analysis/volatility3
+          mkdir -p 02_analysis/volatility3
           echo "Downloading Volatility 3 wheel via pip..."
-          pip3 download --dest 03_analysis/volatility3 volatility3 2>&1 | tail -10
+          pip3 download --dest 02_analysis/volatility3 volatility3 2>&1 | tail -10
           # 也下 symbols pack(常用 windows PDB)
           echo "Downloading Volatility 3 symbols pack (optional)..."
-          mkdir -p 03_analysis/volatility3/symbols
+          mkdir -p 02_analysis/volatility3/symbols
           curl -fsSL --retry 3 --retry-delay 5 -o /tmp/symbols.zip "https://downloads.volatilityfoundation.org/volatility3/symbols/windows.zip" || echo "  (symbols download failed, ok - download_symbols.ps1 will handle later)"
           if [ -f /tmp/symbols.zip ]; then
               # 用绝对路径 unzip,避免改当前工作目录影响后面的 ls
-              unzip -o /tmp/symbols.zip -d 03_analysis/volatility3/symbols 2>/dev/null || true
+              unzip -o /tmp/symbols.zip -d 02_analysis/volatility3/symbols 2>/dev/null || true
               rm -f /tmp/symbols.zip
           fi
-          ls -la 03_analysis/volatility3/
+          ls -la 02_analysis/volatility3/
 
       - name: Download Python embeddable (Windows)
         if: steps.check.outputs.changed == 'true'
         run: |
           # Python embeddable 是免安装的 Python,跟 vol3 wheel 配合
           # 让分析机不必预装 Python 也能跑 vol
-          mkdir -p 03_analysis/python
+          mkdir -p 02_analysis/python
           PY_VERSION="3.12.7"
           PY_URL="https://www.python.org/ftp/python/${PY_VERSION}/python-${PY_VERSION}-embed-amd64.zip"
           echo "Downloading Python ${PY_VERSION} embeddable..."
           curl -fsSL --retry 3 --retry-delay 5 -o /tmp/python-embed.zip "${PY_URL}"
-          unzip -q -o /tmp/python-embed.zip -d 03_analysis/python
+          unzip -q -o /tmp/python-embed.zip -d 02_analysis/python
           rm -f /tmp/python-embed.zip
           # embeddable 默认禁 pip,改 _pth 文件启用 site
-          PTH_FILE=$(ls 03_analysis/python/python*._pth 2>/dev/null | head -1)
+          PTH_FILE=$(ls 02_analysis/python/python*._pth 2>/dev/null | head -1)
           if [ -n "$PTH_FILE" ]; then
               echo "PTH file: $PTH_FILE"
               echo "--- Before ---"
@@ -192,24 +192,24 @@ jobs:
               echo "---"
           else
               echo "ERROR: no _pth file found"
-              ls 03_analysis/python/*.pth 2>&1 || true
+              ls 02_analysis/python/*.pth 2>&1 || true
               exit 1
           fi
           # 下 pip(embeddable 不带 pip)
           curl -fsSL https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py
           # 在 ubuntu runner 上 python.exe 不可执行,加 +x
-          chmod +x 03_analysis/python/python.exe
+          chmod +x 02_analysis/python/python.exe
           # 装 pip(如果失败不影响 workflow,因为 Windows 端 install_volatility.bat 会再装)
-          03_analysis/python/python.exe /tmp/get-pip.py --no-warn-script-location 2>&1 | tail -3 || echo "  (workflow 端装 pip 失败,Windows 端 install_volatility.bat 会再装)"
+          02_analysis/python/python.exe /tmp/get-pip.py --no-warn-script-location 2>&1 | tail -3 || echo "  (workflow 端装 pip 失败,Windows 端需另行准备 Volatility)"
           rm -f /tmp/get-pip.py
           # 用 embeddable python 装 vol3(workflow 端尽力,失败也无所谓)
           echo "Installing Volatility 3 into Python embeddable (best effort)..."
-          WHL=$(ls 03_analysis/volatility3/volatility3-*.whl | head -1)
+          WHL=$(ls 02_analysis/volatility3/volatility3-*.whl | head -1)
           if [ -n "$WHL" ]; then
-              03_analysis/python/python.exe -m pip install --no-warn-script-location "$WHL" 2>&1 | tail -3 || echo "  (workflow 端装 vol3 失败,Windows 端 install_volatility.bat 会再装)"
+              02_analysis/python/python.exe -m pip install --no-warn-script-location "$WHL" 2>&1 | tail -3 || echo "  (workflow 端装 vol3 失败,分析机需另行准备 Volatility)"
               echo "✓ Volatility 3 install attempted"
           fi
-          ls -la 03_analysis/python/ | head -20
+          ls -la 02_analysis/python/ | head -20
 
       - name: Generate checksums
         if: steps.check.outputs.changed == 'true'
@@ -220,7 +220,7 @@ jobs:
             echo "# WinPmem: ${{ steps.winpmem.outputs.tag }}"
             echo "# capa:    ${{ steps.capa.outputs.tag }}"
             echo ""
-            find 01_acquire 03_analysis -type f \( -name "*.exe" -o -name "capa*" \) -exec sha256sum {} \;
+            find 01_collection 02_analysis -type f \( -name "*.exe" -o -name "capa*" \) -exec sha256sum {} \;
           } > SHA256SUMS
           cat SHA256SUMS
 
@@ -236,6 +236,9 @@ jobs:
             echo "### 包含文件"
             echo "- \`winpmem_mini_x64_rc2.exe\` - 内存 dump 主力 (~5MB)"
             echo "- \`capa.exe\` (含依赖) - PE 静态分析"
+            echo ""
+            echo "### 发布产物"
+            echo "- 仅发布 \`ir-toolkit.zip\`；以上工具均已打包在 zip 内，不单独发布。"
             echo ""
             echo "### SHA256 校验"
             echo '```'
@@ -276,35 +279,31 @@ jobs:
             --title "Forensics Tools - ${{ steps.winpmem.outputs.tag }} / ${{ steps.capa.outputs.tag }}" \
             --notes-file /tmp/release_notes.md
 
-          # 上传单文件 assets
-          gh release upload "$NEW_TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            --clobber \
-            01_acquire/winpmem_mini_x64_rc2.exe \
-            SHA256SUMS 2>/dev/null || true
-
-          if [ -d "03_analysis" ]; then
-            find 03_analysis -type f -name "capa.exe" -exec gh release upload "$NEW_TAG" {} --repo "$GITHUB_REPOSITORY" --clobber \; 2>/dev/null || true
-          fi
-
           echo "Release created: $NEW_TAG"
           echo "URL: https://github.com/$GITHUB_REPOSITORY/releases/tag/$NEW_TAG"
 
       - name: Build all-in-one zip
         if: steps.check.outputs.changed == 'true'
         run: |
-          # 整个目录打成一个 zip,排除元数据/构建产物
+          # 只发布一个 zip；工具二进制（包括 capa）必须进入 zip，不单独上传。
+          test -s 01_collection/tools/winpmem_mini_x64_rc2.exe
+          CAPA_EXE=$(find 02_analysis/tools -type f -name "capa.exe" | head -1)
+          test -n "$CAPA_EXE" && test -s "$CAPA_EXE"
+          echo "Bundled tools: 01_collection/tools/winpmem_mini_x64_rc2.exe, $CAPA_EXE"
+
+          # 整个目录打成一个 zip,排除构建目录；SHA256SUMS 保留在 zip 内。
           zip -r ir-toolkit.zip . \
             -x '.git/*' \
             -x '.github/*' \
             -x '.gitkeep' \
             -x '.gitignore' \
-            -x 'SHA256SUMS' \
             -x 'ir-toolkit.zip' \
             -x 'tools-manifest.json' \
             -x 'install_tools.ps1' \
             -x 'install_tools.sh' \
             -x '*.zip'
+          unzip -l ir-toolkit.zip | grep -q '01_collection/tools/winpmem_mini_x64_rc2.exe'
+          unzip -l ir-toolkit.zip | grep -q 'capa.exe'
           ls -la ir-toolkit.zip
           echo "✓ Built all-in-one zip"
 
@@ -336,5 +335,5 @@ jobs:
           if [ "${{ steps.check.outputs.changed }}" = "true" ]; then
             echo "📦 [下载完整包 (ir-toolkit.zip)](https://github.com/${{ github.repository }}/releases/latest)" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**一个 zip,直接用**: 解压 → 拷 U 盘 → 管理员双击 02_collection/acquire.bat" >> $GITHUB_STEP_SUMMARY
+            echo "**一个 zip,直接用**: 解压 → 拷 U 盘 → 管理员运行 01_collection/run_collect.bat" >> $GITHUB_STEP_SUMMARY
           fi

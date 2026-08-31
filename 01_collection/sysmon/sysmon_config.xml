@@ -41,34 +41,15 @@
       </Rule>
     </NetworkConnect>
 
-    <!-- Event 11: FileCreate(应急关注:用户目录 + Temp)-->
+    <!-- Event 11: FileCreate(应急关注:用户目录 + Temp)
+         contains any is intentional: sibling TargetFilename rules are AND. -->
     <FileCreate onmatch="include">
-      <TargetFilename condition="contains">\Users\</TargetFilename>
-      <TargetFilename condition="contains">\Temp\</TargetFilename>
-      <TargetFilename condition="contains">\AppData\Local\Temp\</TargetFilename>
-      <TargetFilename condition="contains">\ProgramData\</TargetFilename>
-      <TargetFilename condition="ends with">.exe</TargetFilename>
-      <TargetFilename condition="ends with">.dll</TargetFilename>
-      <TargetFilename condition="ends with">.ps1</TargetFilename>
-      <TargetFilename condition="ends with">.bat</TargetFilename>
-      <TargetFilename condition="ends with">.vbs</TargetFilename>
-      <TargetFilename condition="ends with">.hta</TargetFilename>
-      <TargetFilename condition="ends with">.jar</TargetFilename>
-      <TargetFilename condition="ends with">.js</TargetFilename>
-      <TargetFilename condition="ends with">.lnk</TargetFilename>
+      <TargetFilename condition="contains any">\Users\;\Temp\;\AppData\Local\Temp\;\ProgramData\</TargetFilename>
     </FileCreate>
 
     <!-- Event 12/13/14: RegistryEvent(只关注 Run/RunOnce/Services)-->
     <RegistryEvent onmatch="include">
-      <TargetObject condition="contains">\CurrentVersion\Run</TargetObject>
-      <TargetObject condition="contains">\CurrentVersion\RunOnce</TargetObject>
-      <TargetObject condition="contains">\CurrentVersion\RunOnceEx</TargetObject>
-      <TargetObject condition="contains">\CurrentControlSet\Services</TargetObject>
-      <TargetObject condition="contains">\ShellIconOverlayIdentifiers</TargetObject>
-      <TargetObject condition="contains">\Image File Execution Options</TargetObject>
-      <TargetObject condition="contains">\Winlogon</TargetObject>
-      <TargetObject condition="contains">\Windows NT\CurrentVersion\Winlogon</TargetObject>
-      <TargetObject condition="contains">\Lsa</TargetObject>
+      <TargetObject condition="contains any">\CurrentVersion\Run;\CurrentVersion\RunOnce;\CurrentVersion\RunOnceEx;\CurrentControlSet\Services;\ShellIconOverlayIdentifiers;\Image File Execution Options;\Winlogon;\Lsa</TargetObject>
     </RegistryEvent>
 
     <!-- Event 22: DnsQuery(全记)-->

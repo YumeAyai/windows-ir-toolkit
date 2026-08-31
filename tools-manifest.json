@@ -2,14 +2,14 @@
   "$schema": "https://json.schemastore.org/package.json",
   "_comment": "工具源信息,workflow 会基于此自动下载。手动下载工具请用 install_tools.ps1/sh",
   "version": "1.0.0",
-  "last_updated": "2026-08-30",
+  "last_updated": "2026-09-01",
   "tools": {
     "winpmem": {
       "purpose": "内存 dump 主力 (Velocidex 出品,开源)",
       "type": "auto",
       "source": "github:Velocidex/WinPmem",
       "asset_name": "winpmem_mini_x64_rc2.exe",
-      "target_path": "01_acquire/",
+      "target_path": "01_collection/tools/",
       "size_mb_approx": 5
     },
     "capa": {
@@ -17,7 +17,7 @@
       "type": "auto",
       "source": "github:mandiant/capa",
       "asset_pattern": "*windows*.zip",
-      "target_path": "03_analysis/",
+      "target_path": "02_analysis/tools/",
       "size_mb_approx": 25
     },
     "ftk_imager": {
@@ -25,7 +25,7 @@
       "type": "manual",
       "reason": "官方下载需注册账号,无法自动获取",
       "download_url": "https://www.exterro.com/ftk-imager",
-      "target_path": "01_acquire/FTK_Imager.exe",
+      "target_path": "01_collection/tools/FTK_Imager.exe",
       "size_mb_approx": 50
     },
     "magnet_ram_capture": {
@@ -33,7 +33,7 @@
       "type": "manual",
       "reason": "官方下载需注册账号",
       "download_url": "https://www.magnetforensics.com/resources/magnet-ram-capture/",
-      "target_path": "01_acquire/MagnetRAMCapture.exe",
+      "target_path": "01_collection/tools/MagnetRAMCapture.exe",
       "size_mb_approx": 10
     },
     "dumpit": {
@@ -41,7 +41,7 @@
       "type": "manual",
       "reason": "官方下载需注册账号",
       "download_url": "https://www.comae.com/",
-      "target_path": "01_acquire/DumpIt.exe",
+      "target_path": "01_collection/tools/DumpIt.exe",
       "size_mb_approx": 2
     }
   },
