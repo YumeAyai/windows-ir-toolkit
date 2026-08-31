@@ -108,7 +108,11 @@ if ($SkipMemory) {
             & $winpmem $memoryPath *> $memoryLog
             $rc = $LASTEXITCODE
             if (-not (Test-Path -LiteralPath $memoryPath)) { throw "mem.raw was not created (exit code $rc)" }
-            Write-Log "OK  memory capture; exit code $rc" Green
+            if ($rc -and $rc -ne 0) {
+                Write-Log "WARN memory capture produced mem.raw but returned exit code $rc; validate the image before relying on it" Yellow
+            } else {
+                Write-Log 'OK  memory capture; exit code 0' Green
+            }
         } catch {
             $reason = "FAIL memory capture: $($_.Exception.Message)"
             $script:Failures.Add($reason)
