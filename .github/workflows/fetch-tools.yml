@@ -181,16 +181,12 @@ jobs:
               echo "--- Before ---"
               cat "$PTH_FILE"
               echo "---"
-              # 直接重写整个 _pth 文件(比 sed 更稳)
-              # 标准 embeddable _pth 应该包含:python312.zip / . / import site / Lib\site-packages
-              cat > "$PTH_FILE" <<'PTH_EOF'
-python312.zip
-.
-import site
-
-import sys
-PTH_EOF
-              # 再用 grep 看现在的内容确认(用 cat 看完整)
+              # 直接重写整个 _pth 文件(用 echo 避免 YAML heredoc 缩进问题)
+              echo "python312.zip" > "$PTH_FILE"
+              echo "." >> "$PTH_FILE"
+              echo "import site" >> "$PTH_FILE"
+              echo "" >> "$PTH_FILE"
+              echo "import sys" >> "$PTH_FILE"
               echo "--- After rewrite ---"
               cat "$PTH_FILE"
               echo "---"
