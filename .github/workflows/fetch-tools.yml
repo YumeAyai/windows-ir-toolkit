@@ -144,6 +144,24 @@ jobs:
           # 保留 Sysmon64.exe (主程序) 和 Eula.txt
           ls -la
 
+      - name: Download Volatility 3
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          # vol3 是 Python 包,用 pip download 下成 .whl 塞进 zip
+          mkdir -p 03_analysis/volatility3
+          echo "Downloading Volatility 3 wheel via pip..."
+          pip3 download --no-deps --dest 03_analysis/volatility3 volatility3 2>&1 | tail -5
+          # 也下 symbols pack(常用 windows PDB)
+          echo "Downloading Volatility 3 symbols pack (optional)..."
+          mkdir -p 03_analysis/volatility3/symbols
+          curl -fsSL --retry 3 --retry-delay 5 -o /tmp/symbols.zip "https://downloads.volatilityfoundation.org/volatility3/symbols/windows.zip" || echo "  (symbols download failed, ok - download_symbols.ps1 will handle later)"
+          if [ -f /tmp/symbols.zip ]; then
+              cd 03_analysis/volatility3/symbols
+              unzip -o /tmp/symbols.zip 2>/dev/null || true
+              rm -f /tmp/symbols.zip
+          fi
+          ls -la 03_analysis/volatility3/
+
       - name: Generate checksums
         if: steps.check.outputs.changed == 'true'
         run: |
