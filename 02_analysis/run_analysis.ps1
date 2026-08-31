@@ -33,7 +33,7 @@ function Log([string]$Message, [ConsoleColor]$Color = [ConsoleColor]::Gray) {
 Log "ANA start; evidence=$EvidenceDir" Cyan
 $manifestPath = Join-Path $EvidenceDir '00_meta\sha256_manifest.csv'
 if (-not (Test-Path -LiteralPath $manifestPath)) {
-    Log 'Collection manifest not found; analysis is blocked.' Red
+    Log 'Collection manifest not found; collection likely stopped before finalization. Check 00_meta\collection.log and rerun collection after preserving this case.' Red
     exit 1
 }
 Copy-Item -LiteralPath $manifestPath -Destination (Join-Path $metaDir 'input_manifest.csv') -Force
