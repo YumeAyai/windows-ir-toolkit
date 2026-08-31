@@ -174,16 +174,10 @@ foreach ($log in @('Security','System','Application','Microsoft-Windows-PowerShe
     $safe = $log -replace '[/\\:]', '_'
     Invoke-Capture "event log $log" { wevtutil.exe epl $log (Join-Path $logs "$safe.evtx") } $null
 }
-# The complete Security.evtx was already exported above. This CSV is only a
-# bounded triage view: rendering Message for every event can block for a long
-# time on busy hosts and is not necessary for evidence preservation.
-Invoke-Capture "recent security triage (max 5000 events)" {
-    Get-WinEvent -FilterHashtable @{
-        LogName='Security'
-        Id=@(4624,4625,4648,4672,4688,4697)
-        StartTime=(Get-Date).AddDays(-$LookbackDays)
-    } -MaxEvents 5000 -ErrorAction Stop |
-        Select-Object TimeCreated,Id,ProviderName,LevelDisplayName,RecordId,ProcessId,ThreadId |
+Write-Log 'NOTICE: Security 日志正在读取并生成事件明细 CSV；日志量较大时可能耗时较长，请勿关闭窗口。' Yellow
+Invoke-Capture 'recent security events' {
+    Get-WinEvent -FilterHashtable @{ LogName='Security'; StartTime=(Get-Date).AddDays(-$LookbackDays) } |
+        Select-Object TimeCreated,Id,ProviderName,Message |
         Export-Csv -NoTypeInformation -Encoding UTF8 -LiteralPath (Join-Path $logs "security_${LookbackDays}d.csv")
 } $null
 
