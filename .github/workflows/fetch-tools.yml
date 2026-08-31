@@ -156,8 +156,8 @@ jobs:
           mkdir -p 03_analysis/volatility3/symbols
           curl -fsSL --retry 3 --retry-delay 5 -o /tmp/symbols.zip "https://downloads.volatilityfoundation.org/volatility3/symbols/windows.zip" || echo "  (symbols download failed, ok - download_symbols.ps1 will handle later)"
           if [ -f /tmp/symbols.zip ]; then
-              cd 03_analysis/volatility3/symbols
-              unzip -o /tmp/symbols.zip 2>/dev/null || true
+              # 用绝对路径 unzip,避免改当前工作目录影响后面的 ls
+              unzip -o /tmp/symbols.zip -d 03_analysis/volatility3/symbols 2>/dev/null || true
               rm -f /tmp/symbols.zip
           fi
           ls -la 03_analysis/volatility3/
