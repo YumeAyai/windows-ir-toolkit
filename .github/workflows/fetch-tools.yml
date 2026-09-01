@@ -50,9 +50,12 @@ jobs:
           $release = Invoke-RestMethod -Uri 'https://api.github.com/repos/Velocidex/WinPmem/releases/latest'
           $asset = $release.assets | Where-Object name -eq 'go-winpmem_amd64_1.0-rc2_signed.exe' | Select-Object -First 1
           if (-not $asset) { throw 'Signed production Go WinPmem asset not found' }
-          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile "$env:RUNNER_TEMP\go-winpmem.exe" -UseBasicParsing
-          $help = @(& "$env:RUNNER_TEMP\go-winpmem.exe" --help 2>&1)
-          if (($help -join "`n") -notmatch 'acquire') { throw 'Go WinPmem CLI does not expose the acquire command' }
+          $exe = "$env:RUNNER_TEMP\go-winpmem.exe"
+          $helpFile = "$env:RUNNER_TEMP\go-winpmem-help.txt"
+          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $exe -UseBasicParsing
+          & cmd.exe /d /c "`"$exe`" --help > `"$helpFile`" 2>&1"
+          $help = Get-Content -Raw -LiteralPath $helpFile
+          if ($help -notmatch 'acquire') { throw "Go WinPmem CLI does not expose the acquire command. Output: $help" }
           Write-Host "Signed Go WinPmem acquire command verified"
 
   fetch:
