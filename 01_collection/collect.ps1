@@ -99,27 +99,34 @@ if ($SkipMemory) {
     Write-Log 'SKIP memory capture requested by operator' Yellow
 } else {
     $winpmem = @(
+        (Join-Path $PSScriptRoot 'tools\go-winpmem_amd64_1.0-rc2_signed.exe'),
+        (Join-Path $PSScriptRoot 'tools\go-winpmem_amd64_signed.exe'),
         (Join-Path $PSScriptRoot 'tools\winpmem_mini_x64_rc2.exe'),
         (Join-Path $PSScriptRoot 'winpmem_mini_x64_rc2.exe')
     ) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
     if ($winpmem) {
-        Write-Log "Memory capture: $winpmem" Cyan
+        $winpmemName = Split-Path -Leaf $winpmem
+        $winpmemArgs = if ($winpmemName -like 'go-winpmem*') {
+            @('acquire', '--progress', $memoryPath)
+        } else {
+            @($memoryPath)
+        }
+        Write-Log "Memory capture: $winpmem; args=$($winpmemArgs -join ' ')" Cyan
         try {
-            & $winpmem $memoryPath *> $memoryLog
+            & $winpmem @winpmemArgs *> $memoryLog
             $rc = $LASTEXITCODE
             if (-not (Test-Path -LiteralPath $memoryPath)) { throw "mem.raw was not created (exit code $rc)" }
-            if ($rc -and $rc -ne 0) {
-                Write-Log "WARN memory capture produced mem.raw but returned exit code $rc; validate the image before relying on it" Yellow
-            } else {
-                Write-Log 'OK  memory capture; exit code 0' Green
-            }
+            $memoryBytes = (Get-Item -LiteralPath $memoryPath).Length
+            if ($memoryBytes -lt 64MB) { throw "mem.raw is too small ($memoryBytes bytes; exit code $rc); acquisition is invalid" }
+            if ($rc -and $rc -ne 0) { throw "WinPmem returned exit code $rc after writing $memoryBytes bytes" }
+            Write-Log "OK  memory capture; bytes=$memoryBytes; exit code 0" Green
         } catch {
             $reason = "FAIL memory capture: $($_.Exception.Message)"
             $script:Failures.Add($reason)
             Write-Log $reason Red
         }
     } else {
-        $reason = 'FAIL memory capture: WinPmem not found under 01_collection\tools'
+        $reason = 'FAIL memory capture: signed go-winpmem or compatible WinPmem not found under 01_collection\tools'
         $script:Failures.Add($reason)
         Write-Log $reason Red
     }

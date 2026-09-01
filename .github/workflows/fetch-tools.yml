@@ -23,8 +23,41 @@ permissions:
   actions: read
 
 jobs:
+  validate-windows:
+    name: Validate Windows entry points
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Parse PowerShell scripts with Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          $failures = @()
+          Get-ChildItem -Path . -Recurse -Filter *.ps1 | ForEach-Object {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors) | Out-Null
+            foreach ($error in $errors) { $failures += "$($_.FullName): $($error.Message)" }
+          }
+          if ($failures.Count -gt 0) { throw ($failures -join "`n") }
+          Write-Host "PowerShell 5.1 parse check passed"
+
+      - name: Verify signed Go WinPmem CLI
+        shell: powershell
+        run: |
+          $release = Invoke-RestMethod -Uri 'https://api.github.com/repos/Velocidex/WinPmem/releases/latest'
+          $asset = $release.assets | Where-Object name -eq 'go-winpmem_amd64_1.0-rc2_signed.exe' | Select-Object -First 1
+          if (-not $asset) { throw 'Signed production Go WinPmem asset not found' }
+          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile "$env:RUNNER_TEMP\go-winpmem.exe" -UseBasicParsing
+          $help = @(& "$env:RUNNER_TEMP\go-winpmem.exe" --help 2>&1)
+          if (($help -join "`n") -notmatch 'acquire') { throw 'Go WinPmem CLI does not expose the acquire command' }
+          Write-Host "Signed Go WinPmem acquire command verified"
+
   fetch:
     name: Download tools & publish release
+    needs: validate-windows
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -57,10 +90,11 @@ jobs:
           echo "Querying Velocidex/WinPmem latest release..."
           WINPMEM_JSON=$(curl -fsSL "https://api.github.com/repos/Velocidex/WinPmem/releases/latest")
           WINPMEM_TAG=$(echo "$WINPMEM_JSON" | jq -r '.tag_name // empty')
-          WINPMEM_URL=$(echo "$WINPMEM_JSON" | jq -r '.assets[] | select(.name == "winpmem_mini_x64_rc2.exe") | .browser_download_url' 2>/dev/null)
+          WINPMEM_ASSET="go-winpmem_amd64_1.0-rc2_signed.exe"
+          WINPMEM_URL=$(echo "$WINPMEM_JSON" | jq -r --arg asset "$WINPMEM_ASSET" '.assets[] | select(.name == $asset) | .browser_download_url' 2>/dev/null)
           echo "DEBUG: WINPMEM_URL='$WINPMEM_URL' (len=${#WINPMEM_URL})"
           if [ -z "$WINPMEM_URL" ] || [ "$WINPMEM_URL" = "null" ]; then
-            echo "::error::Cannot find winpmem_mini_x64_rc2.exe in latest release"
+            echo "::error::Cannot find signed production asset $WINPMEM_ASSET in latest release"
             echo "DEBUG: First 800 chars of API response:"
             echo "$WINPMEM_JSON" | head -c 800
             echo ""
@@ -69,8 +103,9 @@ jobs:
             exit 1
           fi
           echo "tag=$WINPMEM_TAG" >> $GITHUB_OUTPUT
+          echo "asset=$WINPMEM_ASSET" >> $GITHUB_OUTPUT
           echo "url=$WINPMEM_URL" >> $GITHUB_OUTPUT
-          echo "✓ WinPmem $WINPMEM_TAG"
+          echo "✓ WinPmem $WINPMEM_TAG / $WINPMEM_ASSET"
 
       - name: Resolve latest capa
         id: capa
@@ -119,9 +154,9 @@ jobs:
         run: |
           mkdir -p 01_collection/tools
           echo "Downloading ${{ steps.winpmem.outputs.url }}..."
-          curl -fsSL --retry 3 --retry-delay 5 -o 01_collection/tools/winpmem_mini_x64_rc2.exe "${{ steps.winpmem.outputs.url }}"
+          curl -fsSL --retry 3 --retry-delay 5 -o "01_collection/tools/${{ steps.winpmem.outputs.asset }}" "${{ steps.winpmem.outputs.url }}"
           ls -la 01_collection/tools/
-          file 01_collection/tools/winpmem_mini_x64_rc2.exe 2>/dev/null || true
+          file "01_collection/tools/${{ steps.winpmem.outputs.asset }}" 2>/dev/null || true
 
       - name: Download capa
         if: steps.check.outputs.changed == 'true'
@@ -241,7 +276,7 @@ jobs:
             echo "**capa**: [${{ steps.capa.outputs.tag }}](https://github.com/mandiant/capa/releases/tag/${{ steps.capa.outputs.tag }})"
             echo ""
             echo "### 包含文件"
-            echo "- \`winpmem_mini_x64_rc2.exe\` - 内存 dump 主力 (~5MB)"
+            echo "- \`${{ steps.winpmem.outputs.asset }}\` - 官方签名的生产版内存采集器"
             echo "- \`capa.exe\` (含依赖) - PE 静态分析"
             echo ""
             echo "### 发布产物"
@@ -293,10 +328,10 @@ jobs:
         if: steps.check.outputs.changed == 'true'
         run: |
           # 只发布一个 zip；工具二进制（包括 capa）必须进入 zip，不单独上传。
-          test -s 01_collection/tools/winpmem_mini_x64_rc2.exe
+          test -s "01_collection/tools/${{ steps.winpmem.outputs.asset }}"
           CAPA_EXE=$(find 02_analysis/tools -type f -name "capa.exe" | head -1)
           test -n "$CAPA_EXE" && test -s "$CAPA_EXE"
-          echo "Bundled tools: 01_collection/tools/winpmem_mini_x64_rc2.exe, $CAPA_EXE"
+          echo "Bundled tools: 01_collection/tools/${{ steps.winpmem.outputs.asset }}, $CAPA_EXE"
 
           # 整个目录打成一个 zip,排除构建目录；SHA256SUMS 保留在 zip 内。
           zip -r ir-toolkit.zip . \
@@ -307,8 +342,8 @@ jobs:
             -x 'ir-toolkit.zip' \
             -x 'tools-manifest.json' \
             -x 'install_tools.ps1' \
-            -x 'install_tools.sh' \
-          unzip -l ir-toolkit.zip | grep -q '01_collection/tools/winpmem_mini_x64_rc2.exe'
+            -x 'install_tools.sh'
+          unzip -l ir-toolkit.zip | grep -q "01_collection/tools/${{ steps.winpmem.outputs.asset }}"
           unzip -l ir-toolkit.zip | grep -q 'capa.exe'
           ls -la ir-toolkit.zip
           echo "✓ Built all-in-one zip"

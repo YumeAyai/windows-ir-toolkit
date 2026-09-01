@@ -8,7 +8,7 @@
       "purpose": "内存 dump 主力 (Velocidex 出品,开源)",
       "type": "auto",
       "source": "github:Velocidex/WinPmem",
-      "asset_name": "winpmem_mini_x64_rc2.exe",
+      "asset_name": "go-winpmem_amd64_1.0-rc2_signed.exe",
       "target_path": "01_collection/tools/",
       "size_mb_approx": 5
     },

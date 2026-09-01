@@ -18,7 +18,7 @@ run_collect.bat
 创建案件目录 → 内存 → 系统/进程/网络/持久化 → 日志/文件痕迹 → SHA256 清单
 ```
 
-内存工具应放在 `tools\winpmem_mini_x64_rc2.exe`。找不到工具时，脚本仍会采集非易失性证据，并在 `00_meta\collection.log` 中明确记录内存失败原因。
+生产环境优先使用官方签名版 `tools\go-winpmem_amd64_1.0-rc2_signed.exe`；脚本使用 `acquire --progress <镜像路径>` 调用。旧 `winpmem_mini_x64_rc2.exe` 只作为兼容回退。找不到工具或生成的镜像小于 64 MiB 时，脚本仍会继续采集其他证据，但会在 `00_meta\collection.log` 中明确记录内存失败。
 
 ## 输出结构
 
