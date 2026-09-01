@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     下载 windows-ir-toolkit 所需的全部取证工具
 

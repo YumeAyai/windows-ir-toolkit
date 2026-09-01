@@ -1,4 +1,4 @@
-<#[
+﻿<#[
 .SYNOPSIS
     COL: collect volatile and triage evidence from a Windows host.
 

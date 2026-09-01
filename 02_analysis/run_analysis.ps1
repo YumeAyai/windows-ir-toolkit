@@ -1,4 +1,4 @@
-<#[
+﻿<#[
 .SYNOPSIS
     ANA: verify a collection case and run a small Volatility 3 triage set.
 #>

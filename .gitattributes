@@ -1,3 +1,8 @@
 # Windows batch files are distributed as GBK/CP936 with CRLF. Do not let Git
 # normalize their line endings when the toolkit is copied to a Windows host.
 *.bat -text
+
+# Windows PowerShell 5.1 treats UTF-8 without a BOM as the active ANSI code
+# page. Keep the BOM in the file and always check PowerShell scripts out with
+# CRLF so Chinese strings cannot break parsing on Chinese Windows hosts.
+*.ps1 text eol=crlf

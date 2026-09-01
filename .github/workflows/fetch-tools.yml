@@ -37,6 +37,12 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Validate Windows script encodings
+        run: |
+          python3 -c 'from pathlib import Path; files=list(Path(".").rglob("*.ps1")); bad=[str(p) for p in files if not (p.read_bytes().startswith(b"\xef\xbb\xbf") and b"\n" not in p.read_bytes().replace(b"\r\n", b""))]; assert not bad, "PowerShell scripts must be UTF-8 BOM + CRLF: " + ", ".join(bad)'
+          python3 -c 'from pathlib import Path; files=list(Path(".").rglob("*.bat")); bad=[str(p) for p in files if b"\n" in p.read_bytes().replace(b"\r\n", b"")]; assert not bad, "Batch scripts must use CRLF: " + ", ".join(bad)'
+          echo "✓ PowerShell UTF-8 BOM/CRLF and batch CRLF validated"
+
       - name: Load manifest
         id: manifest
         run: |
