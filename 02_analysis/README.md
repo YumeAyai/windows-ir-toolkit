@@ -32,9 +32,9 @@ powershell -ExecutionPolicy Bypass -File .\run_analysis.ps1 `
 
 ## 工具准备
 
-- Windows：可把 Volatility 3 的 `vol.exe` 放入 `02_analysis\tools\`，或把 `vol.py` / Python 环境放在分析机上。
+- Windows：发布包已包含 `vol.py`、便携 Python、Volatility 3 及其依赖；也可把独立的 `vol.exe` 放入 `02_analysis\tools\`。
 - WinPmem 只属于 collection，不要在分析机重新对案件目录执行采集脚本。
-- symbols 是分析机缓存，放在 `02_analysis\symbols\`；可用 `download_symbols.ps1` 下载官方 symbols 包。
+- Windows symbols 随分析工具包放在 Volatility 的包目录中；缺少的 Windows symbols 由 Volatility 在联网时自动解析并缓存。symbols 不属于受害机证据，也不应写回 collection 案件目录。
 
 ## 输出
 

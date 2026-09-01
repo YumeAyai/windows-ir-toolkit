@@ -78,23 +78,52 @@ if (-not $volExe) {
     $bundledVol = Join-Path $PSScriptRoot 'tools\vol.exe'
     if (Test-Path -LiteralPath $bundledVol) { $volExe = $bundledVol }
 }
+
+if (-not $volExe) {
+    $bundledVolPy = Join-Path $PSScriptRoot 'vol.py'
+    if (Test-Path -LiteralPath $bundledVolPy) { $volPy = $bundledVolPy }
+}
+
+function Test-PythonRuntime([string]$Candidate) {
+    if (-not $Candidate) { return $false }
+    try {
+        $probe = @(& $Candidate -c "import encodings; print('python-runtime-ok')" 2>&1)
+        $rc = $LASTEXITCODE
+        return ($rc -eq 0 -and (($probe -join "`n") -match 'python-runtime-ok'))
+    } catch { return $false }
+}
+
+if ($python -and -not (Test-PythonRuntime $python)) {
+    Log "PythonPath is not usable: $python" Yellow
+    $python = $null
+}
 if (-not $python) {
     $bundledPython = Join-Path $PSScriptRoot 'python\python.exe'
-    if (Test-Path -LiteralPath $bundledPython) { $python = $bundledPython }
+    if (Test-Path -LiteralPath $bundledPython) {
+        if (Test-PythonRuntime $bundledPython) { $python = $bundledPython }
+        else { Log 'Bundled Python is incomplete; trying system Python.' Yellow }
+    }
 }
 if (-not $python) {
     $pythonCmd = Get-Command python.exe -ErrorAction SilentlyContinue | Select-Object -First 1
     if (-not $pythonCmd) { $pythonCmd = Get-Command python3 -ErrorAction SilentlyContinue | Select-Object -First 1 }
-    if ($pythonCmd) { $python = $pythonCmd.Source }
-}
-if (-not $volExe -and -not $volPy) {
-    $bundledVolPy = Join-Path $PSScriptRoot 'tools\vol.py'
-    if (Test-Path -LiteralPath $bundledVolPy) { $volPy = $bundledVolPy }
+    if ($pythonCmd -and (Test-PythonRuntime $pythonCmd.Source)) { $python = $pythonCmd.Source }
 }
 
-if (-not $volExe -and -not $volPy -and -not $python) {
-    Log 'No Volatility executable or Python runtime found. Place vol.exe in 02_analysis\tools or pass -VolatilityPath.' Yellow
-    exit 0
+if (-not $volExe -and -not $python) {
+    Log 'No usable Python runtime found. Restore the portable package or install Python 3.8+.' Red
+    exit 1
+}
+if (-not $volExe -and -not $volPy) {
+    Log 'No Volatility entry point found. Place vol.exe or vol.py in 02_analysis\tools, or pass -VolatilityPath.' Red
+    exit 1
+}
+if (-not $volExe) {
+    $probe = @(& $python -c "import volatility3; print('volatility3-import-ok')" 2>&1)
+    if ($LASTEXITCODE -ne 0) {
+        Log "Volatility import failed; install or bundle volatility3 and its dependencies. $($probe -join ' ')" Red
+        exit 1
+    }
 }
 
 function Invoke-Volatility([string]$Plugin, [string]$Destination) {

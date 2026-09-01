@@ -1,9 +1,5 @@
 # Symbols
 
-把分析机需要的 Volatility 3 symbols 放在本目录或由分析环境管理。symbols 是分析依赖，不属于受害机证据，也不应写回 collection 案件目录。
+Volatility 3 的 Windows symbols 是分析依赖，不属于受害机证据，也不应写回 collection 案件目录。
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\download_symbols.ps1
-```
-
-网络隔离时可在已授权的联网环境下载后，通过记录介质和 SHA256 转移。
+发布包会把可用的 Windows symbols 放在 Volatility 包目录中。缺少的 Windows symbols 由 Volatility 在联网时自动解析并缓存；网络隔离时，应在已授权的联网环境准备后，通过记录介质和 SHA256 转移。
