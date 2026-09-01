@@ -158,15 +158,8 @@ jobs:
             --implementation cp \
             --python-version 3.12 \
             volatility3
-          # 也下 symbols pack(常用 windows PDB)
-          echo "Downloading Volatility 3 symbols pack (optional)..."
-          mkdir -p 02_analysis/volatility3/symbols
-          curl -fsSL --retry 3 --retry-delay 5 -o /tmp/symbols.zip "https://downloads.volatilityfoundation.org/volatility3/symbols/windows.zip" || echo "  (symbols download failed; Volatility can resolve missing Windows symbols when network is available)"
-          if [ -f /tmp/symbols.zip ]; then
-              # 用绝对路径 unzip,避免改当前工作目录影响后面的 ls
-              unzip -o /tmp/symbols.zip -d 02_analysis/volatility3/symbols 2>/dev/null || true
-              rm -f /tmp/symbols.zip
-          fi
+          # 不预打包整套 Windows symbols（体积可达 GB 级）。Volatility 自己
+          # 管理 symbols 缓存，缺少的 Windows symbols 在分析时按需解析。
           ls -la 02_analysis/volatility3/
 
       - name: Download Python embeddable (Windows)
@@ -210,10 +203,6 @@ jobs:
               echo "Installing wheel contents: $wheel"
               unzip -q -o "$wheel" -d "$SITE_PACKAGES"
           done
-          if [ -d 02_analysis/volatility3/symbols ]; then
-              mkdir -p "$SITE_PACKAGES/volatility3/symbols"
-              cp -R 02_analysis/volatility3/symbols/. "$SITE_PACKAGES/volatility3/symbols/"
-          fi
           test -s 02_analysis/python/python312.zip
           unzip -l 02_analysis/python/python312.zip | grep -q 'encodings/__init__.py'
           test -f "$SITE_PACKAGES/volatility3/__init__.py"
