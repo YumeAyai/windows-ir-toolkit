@@ -44,6 +44,19 @@ jobs:
           if ($failures.Count -gt 0) { throw ($failures -join "`n") }
           Write-Host "PowerShell 5.1 parse check passed"
 
+      - name: Reject wildcard use with LiteralPath
+        shell: powershell
+        run: |
+          $failures = @()
+          Get-ChildItem -Path . -Recurse -Filter *.ps1 | ForEach-Object {
+            $content = Get-Content -Raw -LiteralPath $_.FullName
+            if ($content -match '(?im)\b(?:Copy-Item|Get-ChildItem|Test-Path)\s+-LiteralPath\s+(?:"[^"]*[\*\?][^"]*"|''[^'']*[\*\?][^'']*''|[^\s]*[\*\?][^\s]*)') {
+              $failures += "$($_.FullName): wildcard passed to -LiteralPath"
+            }
+          }
+          if ($failures.Count -gt 0) { throw ($failures -join "`n") }
+          Write-Host "LiteralPath wildcard regression check passed"
+
       - name: Verify signed Go WinPmem CLI
         shell: powershell
         run: |
@@ -76,8 +89,20 @@ jobs:
       - name: Validate Windows script encodings
         run: |
           python3 -c 'from pathlib import Path; files=list(Path(".").rglob("*.ps1")); bad=[str(p) for p in files if not (p.read_bytes().startswith(b"\xef\xbb\xbf") and b"\n" not in p.read_bytes().replace(b"\r\n", b""))]; assert not bad, "PowerShell scripts must be UTF-8 BOM + CRLF: " + ", ".join(bad)'
-          python3 -c 'from pathlib import Path; files=list(Path(".").rglob("*.bat")); bad=[str(p) for p in files if b"\n" in p.read_bytes().replace(b"\r\n", b"")]; assert not bad, "Batch scripts must use CRLF: " + ", ".join(bad)'
-          echo "✓ PowerShell UTF-8 BOM/CRLF and batch CRLF validated"
+          python3 - <<'PY'
+          from pathlib import Path
+          bad = []
+          for path in Path('.').rglob('*.bat'):
+              data = path.read_bytes()
+              try:
+                  data.decode('gbk')
+              except UnicodeDecodeError:
+                  bad.append(f'{path} (not GBK)')
+              if b'\n' in data.replace(b'\r\n', b''):
+                  bad.append(f'{path} (not CRLF)')
+          assert not bad, 'Batch scripts must use GBK + CRLF: ' + ', '.join(bad)
+          PY
+          echo "✓ PowerShell UTF-8 BOM/CRLF and batch GBK/CRLF validated"
 
       - name: Load manifest
         id: manifest

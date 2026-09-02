@@ -191,7 +191,28 @@ Invoke-Capture 'recent security events' {
 $files = Join-Path $CaseDir '07_files'
 $prefetch = Join-Path $files 'prefetch'
 New-Directory $prefetch
-Invoke-Capture 'Prefetch copy' { Copy-Item -LiteralPath "$env:SystemRoot\Prefetch\*.pf" -Destination $prefetch -Force -ErrorAction SilentlyContinue } $null
+Invoke-Capture 'Prefetch copy' {
+    $prefetchSource = Join-Path $env:SystemRoot 'Prefetch'
+    if (-not (Test-Path -LiteralPath $prefetchSource -PathType Container)) {
+        throw "Prefetch directory does not exist: $prefetchSource"
+    }
+
+    # -LiteralPath does not expand *.pf. Enumerate first, then copy each exact
+    # path so an empty or partial collection cannot be reported as successful.
+    $prefetchFiles = @(Get-ChildItem -LiteralPath $prefetchSource -Filter '*.pf' -File -Force -ErrorAction Stop)
+    if ($prefetchFiles.Count -eq 0) {
+        throw "No Prefetch files found in $prefetchSource"
+    }
+    foreach ($prefetchFile in $prefetchFiles) {
+        Copy-Item -LiteralPath $prefetchFile.FullName -Destination $prefetch -Force -ErrorAction Stop
+    }
+
+    $copiedPrefetch = @(Get-ChildItem -LiteralPath $prefetch -Filter '*.pf' -File -Force -ErrorAction Stop)
+    if ($copiedPrefetch.Count -ne $prefetchFiles.Count) {
+        throw "Prefetch copy incomplete: source=$($prefetchFiles.Count), copied=$($copiedPrefetch.Count)"
+    }
+    Write-Log "Prefetch files copied; count=$($copiedPrefetch.Count)" Cyan
+} $null
 
 $users = @(Get-ChildItem -LiteralPath 'C:\Users' -Directory -Force -ErrorAction SilentlyContinue)
 foreach ($u in $users) {
