@@ -16,6 +16,10 @@ on:
   push:
     paths:
       - '.github/workflows/fetch-tools.yml'
+      - '01_collection/**'
+      - '02_analysis/**'
+      - '03_report/**'
+      - 'README.md'
       - 'tools-manifest.json'
 
 permissions:
@@ -169,7 +173,7 @@ jobs:
           echo "existing_tag=$EXISTING_TAG" >> $GITHUB_OUTPUT
 
           # 对比 winpmem tag 是否变化
-          if [ -n "$EXISTING_TAG" ] && [ "$EXISTING_TAG" = "tools-${{ steps.winpmem.outputs.tag }}-${{ steps.capa.outputs.tag }}" ] && [ "${{ inputs.force }}" != "true" ]; then
+          if [ -n "$EXISTING_TAG" ] && [ "$EXISTING_TAG" = "tools-${{ steps.winpmem.outputs.tag }}-${{ steps.capa.outputs.tag }}" ] && [ "${{ inputs.force }}" != "true" ] && [ "${{ github.event_name }}" != "push" ]; then
             echo "changed=false" >> $GITHUB_OUTPUT
             echo "✓ No changes, existing release matches: $EXISTING_TAG"
           else
@@ -327,29 +331,20 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           NEW_TAG="tools-${{ steps.winpmem.outputs.tag }}-${{ steps.capa.outputs.tag }}"
-          echo "Creating release: $NEW_TAG"
-
-          # 强制清理所有已存在的 tools-* release(可能残留 Draft / 失败的)
-          # 用 --jq 直接输出 string,避免 head -1 拿到 JSON 对象
-          EXISTING=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName --jq '.[] | select(.tagName | startswith("tools-")) | .tagName' 2>/dev/null || true)
-          if [ -n "$EXISTING" ]; then
-            echo "$EXISTING" | while IFS= read -r old; do
-              [ -z "$old" ] && continue
-              echo "Deleting old release: $old"
-              gh release delete "$old" --repo "$GITHUB_REPOSITORY" --yes 2>&1 || true
-              # 单独删 git tag(因为 gh release delete 不带 --cleanup-tags)
-              echo "Deleting old tag: $old"
-              gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$old" 2>&1 | head -1 || true
-            done
+          if gh release view "$NEW_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Updating existing release without deleting tags: $NEW_TAG"
+            gh release edit "$NEW_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Forensics Tools - ${{ steps.winpmem.outputs.tag }} / ${{ steps.capa.outputs.tag }}" \
+              --notes-file /tmp/release_notes.md
+          else
+            echo "Creating release: $NEW_TAG"
+            gh release create "$NEW_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Forensics Tools - ${{ steps.winpmem.outputs.tag }} / ${{ steps.capa.outputs.tag }}" \
+              --notes-file /tmp/release_notes.md
           fi
-
-          # 创建新 release
-          gh release create "$NEW_TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "Forensics Tools - ${{ steps.winpmem.outputs.tag }} / ${{ steps.capa.outputs.tag }}" \
-            --notes-file /tmp/release_notes.md
-
-          echo "Release created: $NEW_TAG"
+          echo "Release ready: $NEW_TAG"
           echo "URL: https://github.com/$GITHUB_REPOSITORY/releases/tag/$NEW_TAG"
 
       - name: Build all-in-one zip
